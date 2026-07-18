@@ -6,7 +6,7 @@ Except for the Desktop Enviornment and shell everything is optional.
 
 Disclaimers
 - I am still learning so expect heavy use of AI.
-- This project aggregates and compiles packages and repositories created by others. All credit and intellectual property rights belong to their respective authors. 
+- This project aggregates and compiles packages and repositories created by others. All credit and intellectual property rights (if any) belongs to their respective authors. 
 
 Run using
 
