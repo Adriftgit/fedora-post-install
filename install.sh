@@ -250,7 +250,7 @@ else
   echo "Brave repository is already added."
 fi
 
-PACKAGES=(steam mangohud gamescope protonplus qbittorrent mpv kitty dolphin protontricks goverlay kde-partitionmanager fastfetch brave-origin-nightly rsync duf btop lact plasma-discover loupe gnome-calculator yazi tldr flatseal htop distrobox podman)
+PACKAGES=(steam mangohud gamescope protontricks protonplus goverlay lact mpv loupe gnome-calculator qbittorrent brave-origin-nightly dolphin plasma-discover kde-partitionmanager ZED editor yazi fastfetch zsh rsync duf btop tldr htop distrobox podman)
 
 if [ "$INSTALL_ALL_USER_APPS" = true ]; then
     echo "[INFO] --all-apps used: installing all user applications without prompts."
