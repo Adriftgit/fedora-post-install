@@ -302,9 +302,7 @@ if is_installed_dnf "brave-origin-nightly" || is_installed_dnf "brave-origin"; t
   is_installed_dnf "firefox" && read -p "Remove Firefox? [y/N]: " c && [[ "$c" =~ ^[Yy]$ ]] && dnf remove -y firefox
 fi
 
-# ============================
 # Bazaar Flatpak installation
-# ============================
 if command -v flatpak &>/dev/null; then
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo &>/dev/null || true
     if [ "$INSTALL_ALL_APPS" = true ]; then
