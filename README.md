@@ -87,7 +87,7 @@ User Applications and repos if not added before
 - ilyaz/LACT
 - lihaohong/yazi
 - Installs steam mangohud gamescope protontricks protonplus goverlay lact mpv loupe gnome-calculator qbittorrent brave-origin-nightly dolphin kde-partitionmanager flatpak ZED editor yazi fastfetch zsh rsync duf btop tldr htop distrobox podman
-- Installs Bazaar from Bazzite through flathub
+- Installs Bazaar (from Bazzite) through flathub
 
 ---
 Btrfs Snapshots, Compression & System Recovery Setup from
