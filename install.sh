@@ -250,7 +250,6 @@ else
   echo "Brave repository is already added."
 fi
 
-# Updated package list includes flatseal
 PACKAGES=(steam mangohud gamescope protonplus qbittorrent mpv kitty dolphin protontricks goverlay kde-partitionmanager fastfetch brave-origin-nightly rsync duf btop lact plasma-discover loupe gnome-calculator yazi tldr flatseal htop distrobox podman)
 
 if [ "$INSTALL_ALL_USER_APPS" = true ]; then
