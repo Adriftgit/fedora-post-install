@@ -4,7 +4,9 @@ My custom settings and repos with apps applied for fedora 44 headless install (a
 
 Except for the Desktop Enviornment and shell everything is optional.
 
-Disclaimer: I am still learning so expect heavy use of ai.
+Disclaimers
+- I am still learning so expect heavy use of AI.
+- This project aggregates and compiles packages and repositories created by others. All credit and intellectual property rights belong to their respective authors. 
 
 Run using
 
