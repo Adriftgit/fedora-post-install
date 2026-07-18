@@ -1,7 +1,10 @@
 # fedora-post-install
 
-My custom settings and repos with apps applied for fedora 44 headless install automated script. 
+My custom settings and repos with apps applied for fedora 44 headless install (automated script). 
+
 Except for the Desktop Enviornment and shell everything is optional.
+
+Disclaimer: I am still learning so expect heavy use of ai.
 
 Run using
 
