@@ -10,32 +10,32 @@ set -e
 INSTALL_ALL_USER_PKGS=false
 INSTALL_CACHYOS_KERNEL=false
 ASK_CACHYOS=true
-INSTALL_HYPRLAND=""
 AUTO_REBOOT=false
 INSTALL_SDDM=""
 # --- Optional blocks added ---
 INSTALL_FIREWALLD=""
 INSTALL_DNF_OPTIMIZE=""
 INSTALL_GRAPHICS_DRIVERS=""
+INSTALL_FFMPEG_FULL=""
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --user-pkgs) INSTALL_ALL_USER_PKGS=true ;;
         --cachyos) INSTALL_CACHYOS_KERNEL=true; ASK_CACHYOS=false ;;
         --no-cachyos) INSTALL_CACHYOS_KERNEL=false; ASK_CACHYOS=false ;;
-        --hyprland) INSTALL_HYPRLAND=true ;;
-        --no-hyprland) INSTALL_HYPRLAND=false ;;
         --sddm) INSTALL_SDDM=true ;;
         --no-sddm) INSTALL_SDDM=false ;;
+        --ffmpeg-full) INSTALL_FFMPEG_FULL=true ;;
+        --no-ffmpeg-full) INSTALL_FFMPEG_FULL=false ;;
         --all)
             INSTALL_ALL_USER_PKGS=true
             INSTALL_CACHYOS_KERNEL=true
             ASK_CACHYOS=false
-            INSTALL_HYPRLAND=true
             INSTALL_SDDM=true
             INSTALL_FIREWALLD=true
             INSTALL_DNF_OPTIMIZE=true
             INSTALL_GRAPHICS_DRIVERS=true
+            INSTALL_FFMPEG_FULL=true
             ;;
         --reboot) AUTO_REBOOT=true ;;
         -h|--help)
@@ -44,10 +44,10 @@ while [[ "$#" -gt 0 ]]; do
             echo "  --user-pkgs    Automatically install optional user packages (Docker, KVM)"
             echo "  --cachyos      Automatically install CachyOS Kernel & Schedulers"
             echo "  --no-cachyos   Skip CachyOS Kernel installation"
-            echo "  --hyprland     Install Hyprland (Wayland compositor)"
-            echo "  --no-hyprland  Skip Hyprland installation"
             echo "  --sddm         Install SDDM display manager"
             echo "  --no-sddm      Skip SDDM installation (manual start with start-kineticwe)"
+            echo "  --ffmpeg-full  Replace ffmpeg-free with full ffmpeg"
+            echo "  --no-ffmpeg-full Skip ffmpeg replacement"
             echo "  --all          Install all optional packages and features"
             echo "  --reboot       Automatically reboot at the end"
             exit 0
@@ -135,21 +135,6 @@ fi
 
 dnf install -y --skip-broken $CORE_PACKAGES || handle_error "Installing Desktop Environment and Core Packages"
 
-# Hyprland (optional compositor) – COPR already enabled above
-if [ -z "$INSTALL_HYPRLAND" ]; then
-    read -p "Install Hyprland (Wayland compositor)? (y/N): " choice_hypr
-    if [[ "$choice_hypr" =~ ^[Yy]$ ]]; then
-        INSTALL_HYPRLAND=true
-    else
-        INSTALL_HYPRLAND=false
-    fi
-fi
-
-if [ "$INSTALL_HYPRLAND" = true ]; then
-    echo "Installing Hyprland..."
-    dnf install -y hyprland || handle_error "Installing Hyprland"
-fi
-
 # SDDM (display manager) – optional
 if [ -z "$INSTALL_SDDM" ]; then
     read -p "Install SDDM display manager? (Y/n): " choice_sddm
@@ -172,7 +157,23 @@ fi
 
 ## Step 3 — Hardware Drivers, Codecs & Media
 echo -e "\n---> Step 3: Hardware Drivers, Codecs & Media"
-dnf swap -y ffmpeg-free ffmpeg --allowerasing || handle_error "Swapping to full FFmpeg"
+
+# Full FFmpeg swap – optional
+if [ -z "$INSTALL_FFMPEG_FULL" ]; then
+    read -p "Replace ffmpeg-free with full ffmpeg? (Y/n): " choice_ffmpeg
+    if [[ "$choice_ffmpeg" =~ ^[Nn]$ ]]; then
+        INSTALL_FFMPEG_FULL=false
+    else
+        INSTALL_FFMPEG_FULL=true
+    fi
+fi
+
+if [ "$INSTALL_FFMPEG_FULL" = true ]; then
+    dnf swap -y ffmpeg-free ffmpeg --allowerasing || handle_error "Swapping to full FFmpeg"
+else
+    echo "[SKIP] Keeping current ffmpeg version."
+fi
+
 dnf upgrade --refresh -y || handle_error "System Upgrade"
 dnf distro-sync -y || handle_error "Distro Sync"
 
@@ -188,9 +189,13 @@ fi
 
 if [ "$INSTALL_GRAPHICS_DRIVERS" = true ]; then
     echo "Installing graphics drivers..."
-    dnf install -y --skip-broken mesa-va-drivers-freeworld \
-      mesa-vulkan-drivers-freeworld mesa-dri-drivers \
-      vulkan-loader vulkan-tools || handle_error "Graphics"
+
+    # Install freeworld drivers, replacing stock if present
+    dnf install -y mesa-va-drivers-freeworld mesa-vdpau-drivers-freeworld --allowerasing \
+        || handle_error "Installing freeworld mesa drivers"
+
+    # Install remaining graphics components
+    dnf install -y --skip-broken mesa-dri-drivers vulkan-loader vulkan-tools || handle_error "Graphics"
     dnf install -y libva-utils || handle_error "Installing libva-utils"
 
     if ! grep -q "LIBVA_DRIVER_NAME=radeonsi" "$TARGET_HOME/.bashrc"; then
@@ -232,8 +237,8 @@ else
 fi
 if [[ "$install_docker" =~ ^[Yy]$ ]]; then
   curl -fsSL https://get.docker.com | sh || handle_error "Docker installer"
-  systemctl enable --now docker
-  usermod -aG docker "$TARGET_USER"
+  systemctl enable --now docker || handle_error "Enabling Docker service"
+  usermod -aG docker "$TARGET_USER" || handle_error "Adding user to docker group"
   echo "Docker installed. Added $TARGET_USER to docker group."
 fi
 
@@ -246,10 +251,12 @@ else
 fi
 if [[ "$install_kvm" =~ ^[Yy]$ ]]; then
   dnf install -y @virtualization libvirt || handle_error "Installing virtualization group and libvirt"
-  systemctl enable libvirtd
-  sed -i 's/^#*firewall_backend = .*/firewall_backend = "iptables"/' /etc/libvirt/network.conf
-  systemctl restart libvirtd
-  virsh net-autostart default || handle_error "Autostarting default VM network"
+  # Only modify config if the file exists (libvirt installed successfully)
+  if [ -f /etc/libvirt/network.conf ]; then
+      sed -i 's/^#*firewall_backend = .*/firewall_backend = "iptables"/' /etc/libvirt/network.conf
+  fi
+  systemctl enable --now libvirtd || handle_error "Enabling libvirtd"
+  virsh net-autostart default || echo "[WARNING] Could not autostart default VM network"
 fi
 
 ## Step 5 — Cachyos Kernel with sch-ext addons
@@ -273,13 +280,13 @@ if [ "$INSTALL_CACHYOS_KERNEL" = true ]; then
     mkdir -p /etc/dnf/libdnf5-plugins/actions.d
     cat << 'EOF' > /etc/dnf/libdnf5-plugins/actions.d/cachy-default.actions
 # Set the latest CachyOS kernel as the default boot entry
-post_transaction:kernel*:in::/usr/bin/sh -c /usr/bin/grubby\ --set-default=/boot/$(ls\ /boot\ |\ grep\ vmlinuz.*cachy\ |\ sort\ -V\ |\ tail\ -1)
+post_transaction:kernel*:in::/usr/bin/sh -c "/usr/bin/grubby --set-default=/boot/\$(ls /boot | grep vmlinuz.*cachy | sort -V | tail -1)"
 EOF
 
     dnf remove -y zram-generator-defaults || true
     dnf swap -y zram-generator-defaults cachyos-settings || handle_error "Swapping to cachyos-settings"
     dnf install -y --skip-broken cachyos-settings scx-scheds-git scx-tools-git || handle_error "Installing CachyOS Schedulers"
-    dracut -f || handle_error "Rebuilding initramfs (dracut)"
+    # Fedora's kernel-install already handles initramfs generation – no manual dracut needed
 else
     echo "[INFO] Skipping CachyOS Kernel Installation."
 fi
@@ -310,7 +317,7 @@ if [[ "$install_all_group1" =~ ^[Yy]$ ]]; then
     # Zed
     su - "$TARGET_USER" -c "command -v zed &>/dev/null || [ -f ~/.local/bin/zed ]" || {
         echo "Installing Zed editor..."
-        su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh"
+        su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh" || echo "[FAIL] Zed installation"
     }
     # Bazaar
     if command -v flatpak &>/dev/null; then
@@ -327,7 +334,9 @@ else
             zed)
                 su - "$TARGET_USER" -c "command -v zed &>/dev/null || [ -f ~/.local/bin/zed ]" && echo "[SKIP] zed (already installed)" && continue
                 read -p "Install Zed editor? [y/N]: " c
-                [[ "$c" =~ ^[Yy]$ ]] && su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh"
+                if [[ "$c" =~ ^[Yy]$ ]]; then
+                    su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh" || echo "[FAIL] Zed installation"
+                fi
                 ;;
             bazaar)
                 if ! command -v flatpak &>/dev/null; then
@@ -378,7 +387,9 @@ fi
 if is_installed_dnf "brave-origin-nightly" || is_installed_dnf "brave-origin"; then
   if is_installed_dnf "firefox"; then
     read -p "Remove Firefox? [y/N]: " c
-    [[ "$c" =~ ^[Yy]$ ]] && dnf remove -y firefox
+    if [[ "$c" =~ ^[Yy]$ ]]; then
+        dnf remove -y firefox || echo "[WARNING] Could not remove Firefox"
+    fi
   fi
 fi
 
@@ -393,15 +404,15 @@ if [[ "$install_omz" =~ ^[Yy]$ ]]; then
     fi
 
     echo "Installing Oh My Zsh (unattended) for user $TARGET_USER..."
-    # Run the installer as the target user with the exact command requested
+    # Run the installer as the target user
     sudo -u "$TARGET_USER" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
         || handle_error "Oh My Zsh installation"
 
-    # Change the default shell to zsh for the target user
+    # Change the default shell to zsh for the target user (fully non-interactive)
     ZSH_PATH=$(which zsh)
     if [ "$ZSH_PATH" != "" ]; then
         echo "Changing default shell for $TARGET_USER to $ZSH_PATH..."
-        chsh -s "$ZSH_PATH" "$TARGET_USER" || handle_error "Changing shell to zsh"
+        usermod -s "$ZSH_PATH" "$TARGET_USER" || handle_error "Changing shell to zsh"
     else
         echo "[WARNING] zsh executable not found; shell not changed."
     fi
@@ -634,18 +645,10 @@ echo "==================================================="
 echo "MANUAL CONFIGURATIONS REQUIRED"
 echo "---------------------------------------------------"
 if [ "$INSTALL_SDDM" = true ]; then
-    echo " 1. SDDM is installed and enabled. To log in via SDDM:"
-    if [ "$INSTALL_HYPRLAND" = true ]; then
-        echo "    - Choose Hyprland (Wayland) or Kineticwe (KDE) session."
-    else
-        echo "    - Choose Kineticwe (KDE) session."
-    fi
+    echo " 1. SDDM is installed and enabled. Choose Kineticwe (KDE) session at login."
 else
     echo " 1. SDDM was NOT installed. To start desktop from TTY:"
     echo "    - After logging in, run: start-kineticwe"
-    if [ "$INSTALL_HYPRLAND" = true ]; then
-    echo "    - For Hyprland, run: start-hyprland"
-    fi
 fi
 echo "    - For Noctalia, enable Polkit in Security settings."
 echo ""
