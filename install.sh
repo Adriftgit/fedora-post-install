@@ -191,7 +191,7 @@ fi
 ## Step 3 — Hardware Drivers, Codecs & Media
 echo -e "\n---> Step 3: Hardware Drivers, Codecs & Media"
 
-# ffmpeg-libs and VA-API libraries (optional)
+# --- Ask about multimedia codecs ---
 if [ -z "$INSTALL_FFMPEG_LIBS" ]; then
     read -p "Install multimedia codecs (ffmpeg-libs, libva, libva-utils)? (Y/n): " choice_ffmpeg
     if [[ "$choice_ffmpeg" =~ ^[Nn]$ ]]; then
@@ -201,16 +201,7 @@ if [ -z "$INSTALL_FFMPEG_LIBS" ]; then
     fi
 fi
 
-if [ "$INSTALL_FFMPEG_LIBS" = true ]; then
-    dnf install -y ffmpeg-libs libva libva-utils || handle_error "Installing ffmpeg-libs and VA-API libs"
-else
-    echo "[SKIP] ffmpeg-libs not installed."
-fi
-
-dnf upgrade --refresh -y || handle_error "System Upgrade"
-dnf distro-sync -y || handle_error "Distro Sync"
-
-# Graphics drivers and Vulkan optional
+# --- Ask about AMD graphics / Vulkan ---
 if [ -z "$INSTALL_GRAPHICS_DRIVERS" ]; then
     read -p "Install AMD graphics drivers and Vulkan support? (Y/n): " choice_gfx
     if [[ "$choice_gfx" =~ ^[Nn]$ ]]; then
@@ -220,24 +211,46 @@ if [ -z "$INSTALL_GRAPHICS_DRIVERS" ]; then
     fi
 fi
 
-if [ "$INSTALL_GRAPHICS_DRIVERS" = true ]; then
-    echo "Installing graphics drivers..."
+# --- Install everything in the correct order ---
+if [ "$INSTALL_GRAPHICS_DRIVERS" = true ] || [ "$INSTALL_FFMPEG_LIBS" = true ]; then
+    echo "Installing selected hardware & multimedia packages..."
 
-    # Install freeworld drivers, replacing stock if present
-    dnf install -y mesa-va-drivers-freeworld --allowerasing \
-        || handle_error "Installing freeworld mesa drivers"
+    # 1. Replace stock VA drivers with freeworld (if graphics selected)
+    if [ "$INSTALL_GRAPHICS_DRIVERS" = true ]; then
+        dnf install -y mesa-va-drivers-freeworld --allowerasing \
+            || handle_error "Installing freeworld mesa drivers"
+    fi
 
-    # Install remaining graphics components
-    dnf install -y --skip-broken mesa-dri-drivers vulkan-loader vulkan-tools || handle_error "Graphics"
-    # libva-utils might already be installed, but ensure it's there
-    dnf install -y libva-utils || handle_error "Installing libva-utils"
+    # 2. Multimedia codecs & VA-API libraries
+    if [ "$INSTALL_FFMPEG_LIBS" = true ]; then
+        dnf install -y ffmpeg-libs libva libva-utils \
+            || handle_error "Installing ffmpeg-libs and VA-API libs"
+    fi
 
-    if ! grep -q "LIBVA_DRIVER_NAME=radeonsi" "$TARGET_HOME/.bashrc"; then
-        echo "export LIBVA_DRIVER_NAME=radeonsi" >> "$TARGET_HOME/.bashrc"
-        chown "$TARGET_USER":"$TARGET_USER" "$TARGET_HOME/.bashrc"
+    # 3. Remaining graphics components (if graphics selected)
+    if [ "$INSTALL_GRAPHICS_DRIVERS" = true ]; then
+        dnf install -y --skip-broken mesa-dri-drivers vulkan-loader vulkan-tools libva-utils \
+            || handle_error "Installing AMD graphics and Vulkan components"
+    fi
+
+    # 4. Full system update after all package changes
+    dnf upgrade --refresh -y || handle_error "System Upgrade"
+    dnf distro-sync -y || handle_error "Distro Sync"
+
+    # 5. Set VA-API driver only if freeworld drivers were actually installed
+    if [ "$INSTALL_GRAPHICS_DRIVERS" = true ]; then
+        if ! grep -q "LIBVA_DRIVER_NAME=radeonsi" "$TARGET_HOME/.bashrc"; then
+            echo "export LIBVA_DRIVER_NAME=radeonsi" >> "$TARGET_HOME/.bashrc"
+            chown "$TARGET_USER":"$TARGET_USER" "$TARGET_HOME/.bashrc"
+        fi
+        echo "AMD graphics drivers and Vulkan support installed."
+    fi
+
+    if [ "$INSTALL_FFMPEG_LIBS" = true ]; then
+        echo "Multimedia codecs installed."
     fi
 else
-    echo "[SKIP] AMD graphics drivers and Vulkan support not installed."
+    echo "[SKIP] No hardware drivers or codecs selected."
 fi
 
 ## Step 4 — Firewall and Virtualisation
