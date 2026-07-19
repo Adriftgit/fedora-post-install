@@ -161,7 +161,7 @@ dnf config-manager setopt rpmfusion-free-updates.enabled=1 || handle_error "Sett
 ## Step 2 — Desktop Environment & Core Packages
 echo -e "\n---> Step 2: Desktop Environment & Core Packages"
 
-CORE_PACKAGES="dnf-plugins-core kineticwe noctalia"
+CORE_PACKAGES="dnf-plugins-core kineticwe noctalia-git"
 if [ "$INSTALL_LGL" = true ]; then
     CORE_PACKAGES="$CORE_PACKAGES lgl-system-loadout"
 fi
