@@ -1,23 +1,30 @@
 #!/bin/bash
 # ===================================================
-# Custom Fedora Desktop Install Script
-# ===================================================
+# Custom Fedora Desktop Install Script (REVISED)
 # kineticwe, noctalia, AMD, Btrfs, CachyOS, Gaming
 # Includes full Snapper + grub‑btrfs integration
 # ===================================================
 set -e
 
+# -------------------- Logging --------------------
+LOG_FILE="/var/log/fedora-setup.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "=== Fedora Setup Started at $(date) ==="
+
+# -------------------- Defaults --------------------
 INSTALL_ALL_USER_PKGS=false
 INSTALL_CACHYOS_KERNEL=false
 ASK_CACHYOS=true
 AUTO_REBOOT=false
 INSTALL_SDDM=""
-# --- Optional blocks added ---
 INSTALL_FIREWALLD=""
 INSTALL_DNF_OPTIMIZE=""
 INSTALL_GRAPHICS_DRIVERS=""
-INSTALL_FFMPEG_FULL=""
+INSTALL_FFMPEG_LIBS=""
+INSTALL_DNS_TWEAKS=""
+INSTALL_LGL=false
 
+# -------------------- Parse Arguments --------------------
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --user-pkgs) INSTALL_ALL_USER_PKGS=true ;;
@@ -25,8 +32,10 @@ while [[ "$#" -gt 0 ]]; do
         --no-cachyos) INSTALL_CACHYOS_KERNEL=false; ASK_CACHYOS=false ;;
         --sddm) INSTALL_SDDM=true ;;
         --no-sddm) INSTALL_SDDM=false ;;
-        --ffmpeg-full) INSTALL_FFMPEG_FULL=true ;;
-        --no-ffmpeg-full) INSTALL_FFMPEG_FULL=false ;;
+        --ffmpeg-libs) INSTALL_FFMPEG_LIBS=true ;;
+        --no-ffmpeg-libs) INSTALL_FFMPEG_LIBS=false ;;
+        --dns-tweaks) INSTALL_DNS_TWEAKS=true ;;
+        --no-dns-tweaks) INSTALL_DNS_TWEAKS=false ;;
         --all)
             INSTALL_ALL_USER_PKGS=true
             INSTALL_CACHYOS_KERNEL=true
@@ -35,21 +44,24 @@ while [[ "$#" -gt 0 ]]; do
             INSTALL_FIREWALLD=true
             INSTALL_DNF_OPTIMIZE=true
             INSTALL_GRAPHICS_DRIVERS=true
-            INSTALL_FFMPEG_FULL=true
+            INSTALL_FFMPEG_LIBS=true
+            INSTALL_DNS_TWEAKS=true
             ;;
         --reboot) AUTO_REBOOT=true ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
-            echo "  --user-pkgs    Automatically install optional user packages (Docker, KVM)"
-            echo "  --cachyos      Automatically install CachyOS Kernel & Schedulers"
-            echo "  --no-cachyos   Skip CachyOS Kernel installation"
-            echo "  --sddm         Install SDDM display manager"
-            echo "  --no-sddm      Skip SDDM installation (manual start with start-kineticwe)"
-            echo "  --ffmpeg-full  Replace ffmpeg-free with full ffmpeg"
-            echo "  --no-ffmpeg-full Skip ffmpeg replacement"
-            echo "  --all          Install all optional packages and features"
-            echo "  --reboot       Automatically reboot at the end"
+            echo "  --user-pkgs       Automatically install optional user packages (Docker, KVM)"
+            echo "  --cachyos         Automatically install CachyOS Kernel & Schedulers"
+            echo "  --no-cachyos      Skip CachyOS Kernel installation"
+            echo "  --sddm            Install SDDM display manager"
+            echo "  --no-sddm         Skip SDDM installation (manual start with start-kineticwe)"
+            echo "  --ffmpeg-libs     Install ffmpeg-libs, libva, libva-utils"
+            echo "  --no-ffmpeg-libs  Skip ffmpeg-libs installation"
+            echo "  --dns-tweaks      Set up DNS over TLS & disable NM wait-online"
+            echo "  --no-dns-tweaks   Skip DNS tweaks"
+            echo "  --all             Install all optional packages and features"
+            echo "  --reboot          Automatically reboot at the end"
             exit 0
             ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
@@ -57,7 +69,15 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# 1. Auto‑elevate to root
+# -------------------- Internet Check --------------------
+echo "Checking internet connectivity..."
+if ! ping -c1 -W2 8.8.8.8 &>/dev/null; then
+    echo "ERROR: No internet connection. Aborting."
+    exit 1
+fi
+echo "Network is up."
+
+# -------------------- Root Elevation --------------------
 if [ "$EUID" -ne 0 ]; then
     echo "This script requires administrative privileges."
     echo "Requesting sudo access..."
@@ -67,33 +87,47 @@ fi
 TARGET_USER=${SUDO_USER:-$(logname 2>/dev/null || echo "$USER")}
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 
-# 2. Error handling
+# -------------------- Error Handling --------------------
 handle_error() {
-    echo -e "\n\e[31m[WARNING]\e[0m An error occurred during: $1"
+    local step="$1"
+    echo -e "\n\e[31m[ERROR]\e[0m An error occurred during: $step"
     read -p "Do you want to ignore this and continue to the next step? (y/N): " choice
     case "$choice" in
-        y|Y ) echo -e "Continuing script...\n";;
-        * ) echo "Aborting script."; exit 1;;
+        y|Y ) echo "Continuing script..."; return 0 ;;
+        * ) echo "Aborting script."; exit 1 ;;
     esac
 }
 
+# -------------------- Helper Functions --------------------
+is_installed_dnf() { rpm -q "$1" &>/dev/null; }
+
+enable_copr() {
+    # Enable COPR repository – skip if already enabled
+    dnf copr enable -y "$1" 2>/dev/null || true
+}
+
+selinux_enabled() {
+    command -v restorecon &>/dev/null && sestatus 2>/dev/null | grep -q "enabled"
+}
+
+# -------------------- Start --------------------
 echo "==================================================="
-echo "  Custom Fedora Desktop Install Script"
+echo "  Custom Fedora Desktop Install Script (REVISED)"
 echo "  kineticwe, noctalia, AMD, CachyOS, Gaming"
 echo "  Target User: $TARGET_USER ($TARGET_HOME)"
+echo "  Log: $LOG_FILE"
 echo "==================================================="
 
-## Step 1 — Optimising DNF & Enabling Repositories
-echo -e "\n---> Step 1: Optimising DNF & Enabling Repositories"
+# -------------------- Step 1: DNF Optimisations & Network --------------------
+echo -e "\n---> Step 1: DNF Optimisations & Network Tweaks"
 
-# DNF optimisations optional
+# Install dnf-plugins-core early (needed for config-manager)
+dnf install -y dnf-plugins-core || handle_error "Installing dnf-plugins-core"
+
+# DNF optimisations (optional)
 if [ -z "$INSTALL_DNF_OPTIMIZE" ]; then
     read -p "Apply DNF optimizations? (fastestmirror, parallel downloads, etc.) (Y/n): " choice_dnf
-    if [[ "$choice_dnf" =~ ^[Nn]$ ]]; then
-        INSTALL_DNF_OPTIMIZE=false
-    else
-        INSTALL_DNF_OPTIMIZE=true
-    fi
+    [[ ! "$choice_dnf" =~ ^[Nn]$ ]] && INSTALL_DNF_OPTIMIZE=true || INSTALL_DNF_OPTIMIZE=false
 fi
 
 if [ "$INSTALL_DNF_OPTIMIZE" = true ]; then
@@ -101,48 +135,66 @@ if [ "$INSTALL_DNF_OPTIMIZE" = true ]; then
     grep -q '^max_parallel_downloads=10' /etc/dnf/dnf.conf || echo 'max_parallel_downloads=10' >> /etc/dnf/dnf.conf
     grep -q '^defaultyes=True' /etc/dnf/dnf.conf || echo 'defaultyes=True' >> /etc/dnf/dnf.conf
     grep -q '^keepcache=True' /etc/dnf/dnf.conf || echo 'keepcache=True' >> /etc/dnf/dnf.conf
+    echo "[OK] DNF optimizations applied."
 else
     echo "[SKIP] DNF optimizations not applied."
 fi
 
-# Enable COPR repositories
-dnf copr enable -y theblackdon/kineticwe || handle_error "Enabling kineticwe COPR"
-dnf copr enable -y lionheartp/Hyprland || handle_error "Enabling Hyprland COPR (required by noctalia)"
+# DNS over TLS & disable NetworkManager-wait-online (optional)
+if [ -z "$INSTALL_DNS_TWEAKS" ]; then
+    read -p "Configure DNS over TLS (Cloudflare security) and disable NetworkManager-wait-online? (y/N): " choice_dns
+    [[ "$choice_dns" =~ ^[Yy]$ ]] && INSTALL_DNS_TWEAKS=true || INSTALL_DNS_TWEAKS=false
+fi
 
-# --- lgl-system-loadout optional ---
-INSTALL_LGL=false
+if [ "$INSTALL_DNS_TWEAKS" = true ]; then
+    echo "Setting up DNS over TLS..."
+    mkdir -p /etc/systemd/resolved.conf.d
+    cat > /etc/systemd/resolved.conf.d/99-dns-over-tls.conf << 'DNSCONF'
+[Resolve]
+DNS=1.1.1.2#security.cloudflare-dns.com 1.0.0.2#security.cloudflare-dns.com 2606:4700:4700::1112#security.cloudflare-dns.com 2606:4700:4700::1002#security.cloudflare-dns.com
+DNSOverTLS=yes
+Domains=~.
+DNSCONF
+    systemctl restart systemd-resolved || handle_error "Restarting systemd-resolved"
+    echo "Disabling NetworkManager-wait-online.service..."
+    systemctl disable NetworkManager-wait-online.service 2>/dev/null || true
+    echo "[OK] DNS tweaks applied."
+else
+    echo "[SKIP] DNS tweaks not applied."
+fi
+
+# -------------------- Step 1b: Repositories --------------------
+echo -e "\n---> Step 1b: Enabling Repositories"
+enable_copr "theblackdon/kineticwe"
+enable_copr "lionheartp/Hyprland"
+
 read -p "Install lgl-system-loadout? (system monitoring overlay) (y/N): " choice_lgl
 if [[ "$choice_lgl" =~ ^[Yy]$ ]]; then
     INSTALL_LGL=true
-    dnf copr enable -y linuxgamerlife/lgl-system-loadout || handle_error "Enabling lgl-system-loadout COPR"
+    enable_copr "linuxgamerlife/lgl-system-loadout"
 fi
 
 # RPM Fusion
-dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-               https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm \
-               || handle_error "Installing RPM Fusion Repositories"
+dnf install -y \
+    https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+    https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm \
+    || handle_error "Installing RPM Fusion Repositories"
 
-dnf config-manager setopt rpmfusion-free.enabled=1 || handle_error "Setting rpmfusion-free enabled"
-dnf config-manager setopt rpmfusion-free-updates.enabled=1 || handle_error "Setting rpmfusion-free-updates enabled"
+# Enable the repos (they are usually enabled by default, but ensure)
+dnf config-manager --set-enabled rpmfusion-free rpmfusion-free-updates 2>/dev/null || true
 
-## Step 2 — Desktop Environment & Core Packages
+# -------------------- Step 2: Desktop Environment & Core --------------------
 echo -e "\n---> Step 2: Desktop Environment & Core Packages"
 
 CORE_PACKAGES="dnf-plugins-core kineticwe noctalia"
-if [ "$INSTALL_LGL" = true ]; then
-    CORE_PACKAGES="$CORE_PACKAGES lgl-system-loadout"
-fi
+[ "$INSTALL_LGL" = true ] && CORE_PACKAGES="$CORE_PACKAGES lgl-system-loadout"
 
-dnf install -y --skip-broken $CORE_PACKAGES || handle_error "Installing Desktop Environment and Core Packages"
+dnf install -y $CORE_PACKAGES || handle_error "Installing Desktop Environment and Core Packages"
 
-# SDDM (display manager) – optional
+# SDDM (optional)
 if [ -z "$INSTALL_SDDM" ]; then
     read -p "Install SDDM display manager? (Y/n): " choice_sddm
-    if [[ "$choice_sddm" =~ ^[Nn]$ ]]; then
-        INSTALL_SDDM=false
-    else
-        INSTALL_SDDM=true
-    fi
+    [[ "$choice_sddm" =~ ^[Nn]$ ]] && INSTALL_SDDM=false || INSTALL_SDDM=true
 fi
 
 if [ "$INSTALL_SDDM" = true ]; then
@@ -155,68 +207,60 @@ else
     echo "You can start the Kineticwe desktop manually after login with: start-kineticwe"
 fi
 
-## Step 3 — Hardware Drivers, Codecs & Media
+# -------------------- Step 3: Hardware Drivers & Codecs --------------------
 echo -e "\n---> Step 3: Hardware Drivers, Codecs & Media"
 
-# Full FFmpeg swap – optional
-if [ -z "$INSTALL_FFMPEG_FULL" ]; then
-    read -p "Replace ffmpeg-free with full ffmpeg? (Y/n): " choice_ffmpeg
-    if [[ "$choice_ffmpeg" =~ ^[Nn]$ ]]; then
-        INSTALL_FFMPEG_FULL=false
-    else
-        INSTALL_FFMPEG_FULL=true
-    fi
+# ffmpeg-libs (optional)
+if [ -z "$INSTALL_FFMPEG_LIBS" ]; then
+    read -p "Install multimedia codecs (ffmpeg-libs, libva, libva-utils)? (Y/n): " choice_ffmpeg
+    [[ "$choice_ffmpeg" =~ ^[Nn]$ ]] && INSTALL_FFMPEG_LIBS=false || INSTALL_FFMPEG_LIBS=true
 fi
 
-if [ "$INSTALL_FFMPEG_FULL" = true ]; then
-    dnf swap -y ffmpeg-free ffmpeg --allowerasing || handle_error "Swapping to full FFmpeg"
+if [ "$INSTALL_FFMPEG_LIBS" = true ]; then
+    dnf install -y ffmpeg-libs libva libva-utils || handle_error "Installing ffmpeg-libs and VA-API libs"
 else
-    echo "[SKIP] Keeping current ffmpeg version."
+    echo "[SKIP] ffmpeg-libs not installed."
 fi
 
-dnf upgrade --refresh -y || handle_error "System Upgrade"
-dnf distro-sync -y || handle_error "Distro Sync"
-
-# Graphics drivers and Vulkan optional
+# Graphics drivers (optional)
 if [ -z "$INSTALL_GRAPHICS_DRIVERS" ]; then
     read -p "Install AMD graphics drivers and Vulkan support? (Y/n): " choice_gfx
-    if [[ "$choice_gfx" =~ ^[Nn]$ ]]; then
-        INSTALL_GRAPHICS_DRIVERS=false
-    else
-        INSTALL_GRAPHICS_DRIVERS=true
-    fi
+    [[ "$choice_gfx" =~ ^[Nn]$ ]] && INSTALL_GRAPHICS_DRIVERS=false || INSTALL_GRAPHICS_DRIVERS=true
 fi
 
 if [ "$INSTALL_GRAPHICS_DRIVERS" = true ]; then
     echo "Installing graphics drivers..."
 
-    # Install freeworld drivers, replacing stock if present
-    dnf install -y mesa-va-drivers-freeworld mesa-vdpau-drivers-freeworld --allowerasing \
-        || handle_error "Installing freeworld mesa drivers"
+    # Swap/install VA-API freeworld driver
+    if rpm -q mesa-va-drivers &>/dev/null; then
+        dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld || handle_error "Swapping mesa-va-drivers"
+    else
+        dnf install -y mesa-va-drivers-freeworld || handle_error "Installing mesa-va-drivers-freeworld"
+    fi
+    
+    if rpm -q mesa-vulkan-drivers &>/dev/null; then
+        dnf swap -y mesa-vulkan-drivers mesa-vulkan-drivers-freeworld mesa-va-drivers mesa-va-drivers-freeworld --allowerasing || handle_error "Swapping mesa-vulkan-drivers"
+    else
+        dnf install -y mesa-vulkan-drivers-freeworld mesa-va-drivers-freeworld || handle_error "Installing mesa-vulkan-drivers-freeworld"
+    fi
 
-    # Install remaining graphics components
-    dnf install -y --skip-broken mesa-dri-drivers vulkan-loader vulkan-tools || handle_error "Graphics"
-    dnf install -y libva-utils || handle_error "Installing libva-utils"
+    dnf install -y mesa-dri-drivers vulkan-loader vulkan-tools libva-utils || handle_error "Graphics drivers"
 
     if ! grep -q "LIBVA_DRIVER_NAME=radeonsi" "$TARGET_HOME/.bashrc"; then
         echo "export LIBVA_DRIVER_NAME=radeonsi" >> "$TARGET_HOME/.bashrc"
         chown "$TARGET_USER":"$TARGET_USER" "$TARGET_HOME/.bashrc"
     fi
+    echo "[OK] Graphics drivers installed."
 else
     echo "[SKIP] AMD graphics drivers and Vulkan support not installed."
 fi
 
-## Step 4 — Firewall and Virtualisation
+# -------------------- Step 4: Firewall & Virtualisation --------------------
 echo -e "\n---> Step 4: Firewall and Virtualisation"
 
-# Firewalld optional
 if [ -z "$INSTALL_FIREWALLD" ]; then
     read -p "Install Firewalld and GUI (firewall-config)? (Y/n): " choice_fw
-    if [[ "$choice_fw" =~ ^[Nn]$ ]]; then
-        INSTALL_FIREWALLD=false
-    else
-        INSTALL_FIREWALLD=true
-    fi
+    [[ "$choice_fw" =~ ^[Nn]$ ]] && INSTALL_FIREWALLD=false || INSTALL_FIREWALLD=true
 fi
 
 if [ "$INSTALL_FIREWALLD" = true ]; then
@@ -226,55 +270,50 @@ else
     echo "[SKIP] Firewalld not installed."
 fi
 
-is_installed_dnf() { rpm -q "$1" &>/dev/null; }
-
-# ===== DOCKER =====
+# Docker
 if [ "$INSTALL_ALL_USER_PKGS" = true ]; then
-  install_docker="y"
-  echo "[INFO] Docker installation auto-selected."
+    install_docker="y"
 else
-  read -p "Install Docker Engine? (y/N): " install_docker
+    read -p "Install Docker Engine? (y/N): " install_docker
 fi
 if [[ "$install_docker" =~ ^[Yy]$ ]]; then
-  curl -fsSL https://get.docker.com | sh || handle_error "Docker installer"
-  systemctl enable --now docker || handle_error "Enabling Docker service"
-  usermod -aG docker "$TARGET_USER" || handle_error "Adding user to docker group"
-  echo "Docker installed. Added $TARGET_USER to docker group."
+    curl -fsSL https://get.docker.com | sh || handle_error "Docker installer"
+    systemctl enable --now docker || handle_error "Enabling Docker service"
+    usermod -aG docker "$TARGET_USER" || handle_error "Adding user to docker group"
+    echo "Docker installed."
 fi
 
-# ===== KVM/QEMU =====
+# KVM
 if [ "$INSTALL_ALL_USER_PKGS" = true ]; then
-  install_kvm="y"
-  echo "[INFO] KVM/QEMU installation auto-selected."
+    install_kvm="y"
 else
-  read -p "Install KVM/QEMU Virtualization? (y/N): " install_kvm
+    read -p "Install KVM/QEMU Virtualization? (y/N): " install_kvm
 fi
 if [[ "$install_kvm" =~ ^[Yy]$ ]]; then
-  dnf install -y @virtualization libvirt || handle_error "Installing virtualization group and libvirt"
-  # Only modify config if the file exists (libvirt installed successfully)
-  if [ -f /etc/libvirt/network.conf ]; then
-      sed -i 's/^#*firewall_backend = .*/firewall_backend = "iptables"/' /etc/libvirt/network.conf
-  fi
-  systemctl enable --now libvirtd || handle_error "Enabling libvirtd"
-  virsh net-autostart default || echo "[WARNING] Could not autostart default VM network"
+    dnf install -y @virtualization libvirt || handle_error "Installing virtualization group"
+    if [ -f /etc/libvirt/network.conf ]; then
+        # Ensure firewall_backend is set
+        grep -q '^firewall_backend =' /etc/libvirt/network.conf && \
+            sed -i 's/^#*firewall_backend = .*/firewall_backend = "iptables"/' /etc/libvirt/network.conf || \
+            echo 'firewall_backend = "iptables"' >> /etc/libvirt/network.conf
+    fi
+    systemctl enable --now libvirtd || handle_error "Enabling libvirtd"
+    virsh net-autostart default || echo "[WARNING] Could not autostart default VM network"
 fi
 
-## Step 5 — Cachyos Kernel with sch-ext addons
-echo -e "\n---> Step 5: Cachyos Kernel with addons"
+# -------------------- Step 5: CachyOS Kernel --------------------
+echo -e "\n---> Step 5: CachyOS Kernel with addons"
 
-# Ask about CachyOS only if not already decided by a flag
 if [ "$ASK_CACHYOS" = true ]; then
     read -p "Install CachyOS Kernel and Performance Schedulers? (y/N): " choice_cachy
-    if [[ "$choice_cachy" =~ ^[Yy]$ ]]; then
-        INSTALL_CACHYOS_KERNEL=true
-    fi
+    [[ "$choice_cachy" =~ ^[Yy]$ ]] && INSTALL_CACHYOS_KERNEL=true
 fi
 
 if [ "$INSTALL_CACHYOS_KERNEL" = true ]; then
     echo "Installing CachyOS Kernel & Tools..."
-    dnf copr enable -y bieszczaders/kernel-cachyos || handle_error "Enabling CachyOS Kernel COPR"
-    dnf copr enable -y bieszczaders/kernel-cachyos-addons || handle_error "Enabling CachyOS Addons COPR"
-    dnf install -y --skip-broken kernel-cachyos kernel-cachyos-devel-matched libdnf5-plugin-actions \
+    enable_copr "bieszczaders/kernel-cachyos"
+    enable_copr "bieszczaders/kernel-cachyos-addons"
+    dnf install -y kernel-cachyos kernel-cachyos-devel-matched libdnf5-plugin-actions grubby \
         || handle_error "Installing CachyOS Kernel"
 
     mkdir -p /etc/dnf/libdnf5-plugins/actions.d
@@ -283,29 +322,34 @@ if [ "$INSTALL_CACHYOS_KERNEL" = true ]; then
 post_transaction:kernel*:in::/usr/bin/sh -c "/usr/bin/grubby --set-default=/boot/\$(ls /boot | grep vmlinuz.*cachy | sort -V | tail -1)"
 EOF
 
-    dnf remove -y zram-generator-defaults || true
-    dnf swap -y zram-generator-defaults cachyos-settings || handle_error "Swapping to cachyos-settings"
-    dnf install -y --skip-broken cachyos-settings scx-scheds-git scx-tools-git || handle_error "Installing CachyOS Schedulers"
-    # Fedora's kernel-install already handles initramfs generation – no manual dracut needed
+    # Swap zram if present
+    if rpm -q zram-generator-defaults &>/dev/null; then
+        dnf swap -y zram-generator-defaults cachyos-settings || handle_error "Swapping zram-generator-defaults"
+    else
+        dnf install -y cachyos-settings || handle_error "Installing cachyos-settings"
+    fi
+
+    dnf install -y scx-scheds-git scx-tools-git || handle_error "Installing CachyOS Schedulers"
+    echo "[OK] CachyOS Kernel installed."
 else
     echo "[INFO] Skipping CachyOS Kernel Installation."
 fi
 
-## Step 6 — User Applications
+# -------------------- Step 6: User Applications --------------------
 echo -e "\n---> Step 6: User Applications"
 
-# Helper to enable copr
-enable_copr() { dnf repolist enabled | grep -iq "${1/\//.*}" || dnf copr enable -y "$1"; }
+# Enable COPRs for apps
 enable_copr "wehagy/protonplus"
 enable_copr "ilyaz/LACT"
 enable_copr "lihaohong/yazi"
 
 # Brave repository
 if [ ! -f /etc/yum.repos.d/brave-browser-nightly.repo ]; then
-  echo "Adding Brave repository..."
-  curl -fsSL https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo -o /etc/yum.repos.d/brave-browser-nightly.repo || handle_error "Adding Brave Nightly Repository"
+    echo "Adding Brave repository..."
+    curl -fsSL https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo -o /etc/yum.repos.d/brave-browser-nightly.repo \
+        || handle_error "Adding Brave Nightly Repository"
 else
-  echo "Brave repository is already added."
+    echo "Brave repository is already added."
 fi
 
 # --------- Group 1: Core desktop apps ---------
@@ -314,20 +358,30 @@ read -p "Do you want to install ALL Group 1 apps? (y/N): " install_all_group1
 if [[ "$install_all_group1" =~ ^[Yy]$ ]]; then
     echo "Installing all Group 1 apps..."
     dnf install -y dolphin kitty flatpak brave-origin-nightly || handle_error "Group 1 dnf packages"
+    # Install Flathub remote
+    if command -v flatpak &>/dev/null; then
+        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    fi
     # Zed
     su - "$TARGET_USER" -c "command -v zed &>/dev/null || [ -f ~/.local/bin/zed ]" || {
         echo "Installing Zed editor..."
-        su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh" || echo "[FAIL] Zed installation"
+        su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh" || {
+            echo "[INFO] Curl installation failed, attempting Flatpak backup..."
+            if command -v flatpak &>/dev/null; then
+                flatpak install -y flathub dev.zed.Zed || echo "[FAIL] Zed flatpak installation"
+            else
+                echo "[FAIL] Flatpak not available, Zed installation failed."
+            fi
+        }
     }
     # Bazaar
     if command -v flatpak &>/dev/null; then
-        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo &>/dev/null || true
         flatpak install -y flathub io.github.kolunmi.Bazaar || handle_error "Bazaar"
     else
         echo "[WARNING] Flatpak not installed, skipping Bazaar."
     fi
 else
-    echo "You can now choose which Group 1 apps to install."
+    # Interactive selection
     group1_packages=("dolphin" "kitty" "flatpak" "zed" "brave-origin-nightly" "bazaar")
     for PKG in "${group1_packages[@]}"; do
         case "$PKG" in
@@ -335,7 +389,14 @@ else
                 su - "$TARGET_USER" -c "command -v zed &>/dev/null || [ -f ~/.local/bin/zed ]" && echo "[SKIP] zed (already installed)" && continue
                 read -p "Install Zed editor? [y/N]: " c
                 if [[ "$c" =~ ^[Yy]$ ]]; then
-                    su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh" || echo "[FAIL] Zed installation"
+                    su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh" || {
+                        echo "[INFO] Curl installation failed, attempting Flatpak backup..."
+                        if command -v flatpak &>/dev/null; then
+                            flatpak install -y flathub dev.zed.Zed || echo "[FAIL] Zed flatpak installation"
+                        else
+                            echo "[FAIL] Flatpak not available, Zed installation failed."
+                        fi
+                    }
                 fi
                 ;;
             bazaar)
@@ -362,6 +423,10 @@ else
                 ;;
         esac
     done
+    # Ensure Flathub remote is added if flatpak installed
+    if command -v flatpak &>/dev/null; then
+        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    fi
 fi
 
 # --------- Group 2: Gaming & utilities ---------
@@ -372,7 +437,6 @@ if [[ "$install_all_group2" =~ ^[Yy]$ ]]; then
     echo "Installing all Group 2 apps..."
     dnf install -y --skip-broken "${group2_packages[@]}" || handle_error "Group 2 packages"
 else
-    echo "You can now choose which Group 2 apps to install."
     for PKG in "${group2_packages[@]}"; do
         if is_installed_dnf "$PKG"; then
             echo "[SKIP] $PKG (already installed)"
@@ -385,32 +449,29 @@ fi
 
 # Firefox removal if Brave installed
 if is_installed_dnf "brave-origin-nightly" || is_installed_dnf "brave-origin"; then
-  if is_installed_dnf "firefox"; then
-    read -p "Remove Firefox? [y/N]: " c
-    if [[ "$c" =~ ^[Yy]$ ]]; then
-        dnf remove -y firefox || echo "[WARNING] Could not remove Firefox"
+    if is_installed_dnf "firefox"; then
+        read -p "Remove Firefox? [y/N]: " c
+        if [[ "$c" =~ ^[Yy]$ ]]; then
+            dnf remove -y firefox || echo "[WARNING] Could not remove Firefox"
+        fi
     fi
-  fi
 fi
 
-## Step 7 — Oh My Zsh (optional)
+# -------------------- Step 7: Oh My Zsh --------------------
 echo -e "\n---> Step 7: Oh My Zsh (optional)"
 read -p "Install Oh My Zsh and set zsh as default shell? (y/N): " install_omz
 if [[ "$install_omz" =~ ^[Yy]$ ]]; then
-    # Ensure zsh is installed
     if ! is_installed_dnf "zsh"; then
         echo "zsh is not installed. Installing now..."
         dnf install -y zsh || handle_error "Installing zsh"
     fi
 
     echo "Installing Oh My Zsh (unattended) for user $TARGET_USER..."
-    # Run the installer as the target user
-    sudo -u "$TARGET_USER" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
+    sudo -u "$TARGET_USER" bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" -- --unattended \
         || handle_error "Oh My Zsh installation"
 
-    # Change the default shell to zsh for the target user (fully non-interactive)
     ZSH_PATH=$(which zsh)
-    if [ "$ZSH_PATH" != "" ]; then
+    if [ -n "$ZSH_PATH" ]; then
         echo "Changing default shell for $TARGET_USER to $ZSH_PATH..."
         usermod -s "$ZSH_PATH" "$TARGET_USER" || handle_error "Changing shell to zsh"
     else
@@ -420,45 +481,44 @@ else
     echo "[SKIP] Oh My Zsh installation."
 fi
 
-## Step 8 — Snapper & Btrfs snapshot integration (optional)
+# -------------------- Step 8: Snapper & Btrfs --------------------
 echo -e "\n---> Step 8: Snapper & Btrfs snapshot integration"
-
-# Track whether Snapper was installed for later reminder
 INSTALL_SNAPPER=false
 
 read -p "Set up Snapper & grub-btrfs for automatic snapshots on DNF transactions? (y/N): " install_snapper
-if [[ ! "$install_snapper" =~ ^[Yy]$ ]]; then
-    echo "[SKIP] Snapper integration not installed."
-else
-    INSTALL_SNAPPER=true
-fi
-
-if [ "$INSTALL_SNAPPER" = true ]; then
-    # Check if root filesystem is Btrfs
+if [[ "$install_snapper" =~ ^[Yy]$ ]]; then
+    # Check root Btrfs
     if ! findmnt -n -o FSTYPE / | grep -q btrfs; then
         echo "[WARNING] Root filesystem is not Btrfs – Snapper integration cannot be set up. Skipping."
-        INSTALL_SNAPPER=false
     else
+        INSTALL_SNAPPER=true
         echo "Installing Snapper and dependencies..."
         dnf install -y snapper libdnf5-plugin-actions btrfs-assistant inotify-tools make git python3 \
             || handle_error "Snapper packages"
 
-        # Create Snapper configs if they don't exist
+        # Create root config
         [ -d /.snapshots ] || snapper -c root create-config / || handle_error "root snapper config"
-        [ -d /home/.snapshots ] || snapper -c home create-config /home || handle_error "home snapper config"
+
+        # Home config only if /home is Btrfs
+        if findmnt -n -o FSTYPE /home | grep -q btrfs; then
+            [ -d /home/.snapshots ] || snapper -c home create-config /home || handle_error "home snapper config"
+            # Set ACLs for home
+            snapper -c home set-config ALLOW_USERS="$TARGET_USER" SYNC_ACL=yes || handle_error "home ACL"
+            snapper -c home set-config TIMELINE_CREATE=no || handle_error "home timeline off"
+        else
+            echo "[WARNING] /home is not Btrfs – skipping home snapshots."
+        fi
 
         # Fix SELinux
-        restorecon -RFv /.snapshots 2>/dev/null || true
-        restorecon -RFv /home/.snapshots 2>/dev/null || true
+        if selinux_enabled; then
+            restorecon -RFv /.snapshots 2>/dev/null || true
+            [ -d /home/.snapshots ] && restorecon -RFv /home/.snapshots 2>/dev/null || true
+        fi
 
-        # Grant current user access
+        # Grant user access to root snapshots
         snapper -c root set-config ALLOW_USERS="$TARGET_USER" SYNC_ACL=yes || handle_error "root ACL"
-        snapper -c home set-config ALLOW_USERS="$TARGET_USER" SYNC_ACL=yes || handle_error "home ACL"
-        # Disable timeline for /home (only use manual/DNF snapshots)
-        snapper -c home set-config TIMELINE_CREATE=no || handle_error "home timeline off"
 
         # Exclude .snapshots from updatedb
-        echo "Updating locate database configuration..."
         if grep -q '^PRUNENAMES' /etc/updatedb.conf; then
             grep -q '\.snapshots' /etc/updatedb.conf || \
                 sed -i 's|^PRUNENAMES *= *"|PRUNENAMES = ".snapshots |' /etc/updatedb.conf
@@ -481,16 +541,19 @@ if [ "$INSTALL_SNAPPER" = true ]; then
         make install || handle_error "grub-btrfs make install"
         systemctl enable --now grub-btrfsd.service || handle_error "grub-btrfsd service"
 
-        # Rebuild GRUB menu to include snapshots
+        # Rebuild GRUB
         echo "Regenerating GRUB configuration..."
         grub2-mkconfig -o /boot/grub2/grub.cfg || handle_error "grub2-mkconfig"
+
+        # Clean up temp dir
+        cd /
+        rm -rf "$TMP_GRUB"
 
         # Create Snapper DNF5 action scripts
         echo "Installing DNF5 Snapper integration scripts..."
 
         cat > /usr/local/bin/snapper-desc.sh << 'DESCSCRIPT'
 #!/bin/bash
-# snapper-desc.sh - extract a snapshot description from the calling process
 PID="$1"
 cmd=$(ps -o command --no-headers -p "$PID" 2>/dev/null || echo "Unknown Task")
 case "$cmd" in
@@ -506,7 +569,6 @@ DESCSCRIPT
 
         cat > /usr/local/bin/snapper-gui-pkg.sh << 'GUIPKGSCRIPT'
 #!/bin/bash
-# snapper-gui-pkg.sh - capture GUI package actions for a nice description
 PID="$1"
 ACTION="$2"
 NAME="$3"
@@ -515,9 +577,7 @@ DESC_FILE="$STATE_DIR/snapper_desc_${PID}"
 PKG_FILE="$STATE_DIR/snapper_gui_${PID}"
 
 desc=$(cat "$DESC_FILE" 2>/dev/null || echo "")
-# Only proceed for GUI transactions
 [[ "$desc" != "GUI" ]] && exit 0
-# Only capture first package to avoid overwriting
 [[ -f "$PKG_FILE" ]] && exit 0
 
 case "$ACTION" in
@@ -529,17 +589,14 @@ GUIPKGSCRIPT
 
         cat > /usr/local/bin/snapper-pre.sh << 'PRESCRIPT'
 #!/bin/bash
-# snapper-pre.sh - create pre snapshot and store metadata
 PID="$1"
 STATE_DIR="/run/snapper-actions"
-
 mkdir -p "$STATE_DIR"
 chmod 700 "$STATE_DIR"
 
-# Ensure libdnf5 sysimage directory exists to avoid packages.toml error
 if [[ ! -d /usr/lib/sysimage/libdnf5 ]]; then
     mkdir -p /usr/lib/sysimage/libdnf5
-    restorecon -q /usr/lib/sysimage/libdnf5 2>/dev/null || true
+    if selinux_enabled; then restorecon -q /usr/lib/sysimage/libdnf5 2>/dev/null || true; fi
 fi
 
 desc=$(/usr/local/bin/snapper-desc.sh "$PID")
@@ -552,7 +609,6 @@ PRESCRIPT
 
         cat > /usr/local/bin/snapper-post.sh << 'POSTSCRIPT'
 #!/bin/bash
-# snapper-post.sh - create post snapshot and clean up
 PID="$1"
 STATE_DIR="/run/snapper-actions"
 DESC_FILE="$STATE_DIR/snapper_desc_${PID}"
@@ -563,29 +619,23 @@ desc=$(cat "$DESC_FILE" 2>/dev/null || echo "")
 pre=$(cat "$PRE_FILE" 2>/dev/null || echo "")
 gui_pkg=$(cat "$GUI_FILE" 2>/dev/null || echo "")
 
-# Nothing to do if no pre snapshot exists
 [[ -z "$pre" ]] && exit 0
 
-# Improve description with GUI info
 if [[ -n "$gui_pkg" ]]; then
     desc="$gui_pkg"
     snapper -c root modify -d "$desc" "$pre" || true
 fi
 
-# Best-effort WAL checkpoint (non-fatal)
 /usr/local/bin/snapper-wal-checkpoint.sh || true
 
-# Create post snapshot linked to pre
 snapper -c root create -c number -t post --pre-number "$pre" -d "$desc"
 
-# Clean up runtime files
 rm -f "$DESC_FILE" "$PRE_FILE" "$GUI_FILE"
 POSTSCRIPT
         chmod 755 /usr/local/bin/snapper-post.sh
 
         cat > /usr/local/bin/snapper-wal-checkpoint.sh << 'WALSCRIPT'
 #!/bin/bash
-# snapper-wal-checkpoint.sh - force SQLite WAL checkpoint for rpmdb
 python3 - << 'EOF'
 import sqlite3
 import sys
@@ -608,37 +658,37 @@ EOF
 WALSCRIPT
         chmod 755 /usr/local/bin/snapper-wal-checkpoint.sh
 
-        # Restore SELinux contexts on the new scripts
-        restorecon -v /usr/local/bin/snapper-*.sh 2>/dev/null || true
+        # SELinux contexts for scripts
+        if selinux_enabled; then
+            restorecon -v /usr/local/bin/snapper-*.sh 2>/dev/null || true
+        fi
 
-        # Install DNF5 actions configuration
+        # Install DNF5 actions
         mkdir -p /etc/dnf/libdnf5-plugins/actions.d
         cat > /etc/dnf/libdnf5-plugins/actions.d/snapper.actions << 'ACTIONS'
 # Snapper pre/post snapshots for DNF5
-# PRE snapshot
 pre_transaction::::/usr/local/bin/snapper-pre.sh ${pid}
-
-# Capture GUI package info (incoming packages)
 pre_transaction:*:in::/usr/local/bin/snapper-gui-pkg.sh ${pid} ${pkg.action} ${pkg.name}
-
-# Capture GUI package info (outgoing packages)
 pre_transaction:*:out::/usr/local/bin/snapper-gui-pkg.sh ${pid} ${pkg.action} ${pkg.name}
-
-# POST snapshot (with WAL fix)
 post_transaction::::/usr/local/bin/snapper-post.sh ${pid}
 ACTIONS
 
-        # Enable Snapper timers (timeline snapshots for root only)
+        # Enable Snapper timers
         systemctl enable --now snapper-timeline.timer || handle_error "snapper-timeline.timer"
         systemctl enable --now snapper-cleanup.timer || handle_error "snapper-cleanup.timer"
 
         echo "Snapper integration completed."
     fi
+else
+    echo "[SKIP] Snapper integration not installed."
 fi
 
-# ===================================================
-# Final messages & reboot
-# ===================================================
+# -------------------- Final System Sync --------------------
+# Now perform distro-sync to ensure everything is consistent
+echo -e "\n---> Performing distro-sync to finalise system consistency..."
+dnf distro-sync -y || handle_error "Distro Sync"
+
+# -------------------- Final Messages --------------------
 echo -e "\n==================================================="
 echo " INSTALLATION COMPLETE "
 echo "==================================================="
@@ -655,16 +705,18 @@ echo ""
 echo " 2. In KDE System Settings:"
 echo "    - Disable File Search, Plasma Search, and KRunner History."
 
-if findmnt -n -o FSTYPE / | grep -q btrfs; then
-    if [ "$INSTALL_SNAPPER" = false ]; then
-        echo ""
-        echo " 3. Snapper & grub-btrfs integration was skipped."
-        echo "    - Update GRUB with:"
-        echo "      sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
-    fi
+if findmnt -n -o FSTYPE / | grep -q btrfs && [ "$INSTALL_SNAPPER" = true ]; then
+    echo ""
+    echo " 3. Snapper & grub-btrfs integration is active."
+    echo "    - Snapshots are created automatically on DNF transactions."
+    echo "    - They appear in the GRUB boot menu under 'Advanced options'."
+fi
+if [ "$INSTALL_DNS_TWEAKS" = true ]; then
+    echo ""
+    echo " 4. DNS over TLS configured – check /etc/systemd/resolved.conf.d/99-dns-over-tls.conf"
 fi
 echo "==================================================="
-
+echo "Log file: $LOG_FILE"
 echo -e "\nSystem changes require a reboot to take effect."
 
 if [ "$AUTO_REBOOT" = true ]; then
