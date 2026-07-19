@@ -440,35 +440,8 @@ if is_installed_dnf "brave-origin-nightly" || is_installed_dnf "brave-origin"; t
   fi
 fi
 
-## Step 7 — Oh My Zsh (optional)
-echo -e "\n---> Step 7: Oh My Zsh (optional)"
-read -p "Install Oh My Zsh and set zsh as default shell? (y/N): " install_omz
-if [[ "$install_omz" =~ ^[Yy]$ ]]; then
-    # Ensure zsh is installed
-    if ! is_installed_dnf "zsh"; then
-        echo "zsh is not installed. Installing now..."
-        dnf install -y zsh || handle_error "Installing zsh"
-    fi
-
-    echo "Installing Oh My Zsh (unattended) for user $TARGET_USER..."
-    # Run the installer as the target user
-    sudo -u "$TARGET_USER" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
-        || handle_error "Oh My Zsh installation"
-
-    # Change the default shell to zsh for the target user (fully non-interactive)
-    ZSH_PATH=$(which zsh)
-    if [ "$ZSH_PATH" != "" ]; then
-        echo "Changing default shell for $TARGET_USER to $ZSH_PATH..."
-        usermod -s "$ZSH_PATH" "$TARGET_USER" || handle_error "Changing shell to zsh"
-    else
-        echo "[WARNING] zsh executable not found; shell not changed."
-    fi
-else
-    echo "[SKIP] Oh My Zsh installation."
-fi
-
-## Step 8 — Snapper & Btrfs snapshot integration (optional)
-echo -e "\n---> Step 8: Snapper & Btrfs snapshot integration"
+## Step 7 — Snapper & Btrfs snapshot integration (optional)
+echo -e "\n---> Step 7: Snapper & Btrfs snapshot integration"
 
 # Track whether Snapper was installed for later reminder
 INSTALL_SNAPPER=false
