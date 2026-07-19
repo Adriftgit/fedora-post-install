@@ -12,9 +12,11 @@ INSTALL_CACHYOS_KERNEL=false
 ASK_CACHYOS=true
 INSTALL_HYPRLAND=""
 AUTO_REBOOT=false
-INSTALL_ALL_USER_APPS=false
-DO_BTRFS_SETUP=""
 INSTALL_SDDM=""
+# --- Optional blocks added ---
+INSTALL_FIREWALLD=""
+INSTALL_DNF_OPTIMIZE=""
+INSTALL_GRAPHICS_DRIVERS=""
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -23,9 +25,6 @@ while [[ "$#" -gt 0 ]]; do
         --no-cachyos) INSTALL_CACHYOS_KERNEL=false; ASK_CACHYOS=false ;;
         --hyprland) INSTALL_HYPRLAND=true ;;
         --no-hyprland) INSTALL_HYPRLAND=false ;;
-        --all-apps) INSTALL_ALL_USER_APPS=true ;;
-        --btrfs-setup) DO_BTRFS_SETUP=true ;;
-        --no-btrfs-setup) DO_BTRFS_SETUP=false ;;
         --sddm) INSTALL_SDDM=true ;;
         --no-sddm) INSTALL_SDDM=false ;;
         --all)
@@ -33,9 +32,10 @@ while [[ "$#" -gt 0 ]]; do
             INSTALL_CACHYOS_KERNEL=true
             ASK_CACHYOS=false
             INSTALL_HYPRLAND=true
-            INSTALL_ALL_USER_APPS=true
-            DO_BTRFS_SETUP=true
             INSTALL_SDDM=true
+            INSTALL_FIREWALLD=true
+            INSTALL_DNF_OPTIMIZE=true
+            INSTALL_GRAPHICS_DRIVERS=true
             ;;
         --reboot) AUTO_REBOOT=true ;;
         -h|--help)
@@ -46,9 +46,6 @@ while [[ "$#" -gt 0 ]]; do
             echo "  --no-cachyos   Skip CachyOS Kernel installation"
             echo "  --hyprland     Install Hyprland (Wayland compositor)"
             echo "  --no-hyprland  Skip Hyprland installation"
-            echo "  --all-apps     Automatically install all recommended Step 6 applications"
-            echo "  --btrfs-setup  Automatically perform Btrfs snapshot & grub‑btrfs setup"
-            echo "  --no-btrfs-setup  Skip Btrfs setup (manual grub update required later)"
             echo "  --sddm         Install SDDM display manager"
             echo "  --no-sddm      Skip SDDM installation (manual start with start-kineticwe)"
             echo "  --all          Install all optional packages and features"
@@ -82,35 +79,34 @@ handle_error() {
 
 echo "==================================================="
 echo "  Custom Fedora Desktop Install Script"
-echo "  kineticwe, noctalia, AMD, Btrfs, CachyOS, Gaming"
+echo "  kineticwe, noctalia, AMD, CachyOS, Gaming"
 echo "  Target User: $TARGET_USER ($TARGET_HOME)"
 echo "==================================================="
-
-## Pre‑Installation Configuration
-echo -e "\n---> Pre-Installation Configuration"
-
-# Btrfs setup question (if not already decided via flags)
-if [ -z "$DO_BTRFS_SETUP" ]; then
-    read -p "Set up Btrfs snapshots, compression & grub‑btrfs? (y/N): " choice_btrfs
-    if [[ "$choice_btrfs" =~ ^[Yy]$ ]]; then
-        DO_BTRFS_SETUP=true
-    else
-        DO_BTRFS_SETUP=false
-    fi
-fi
 
 ## Step 1 — Optimising DNF & Enabling Repositories
 echo -e "\n---> Step 1: Optimising DNF & Enabling Repositories"
 
-# Optimise DNF
-grep -q '^fastestmirror=True' /etc/dnf/dnf.conf || echo 'fastestmirror=True' >> /etc/dnf/dnf.conf
-grep -q '^max_parallel_downloads=10' /etc/dnf/dnf.conf || echo 'max_parallel_downloads=10' >> /etc/dnf/dnf.conf
-grep -q '^defaultyes=True' /etc/dnf/dnf.conf || echo 'defaultyes=True' >> /etc/dnf/dnf.conf
-grep -q '^keepcache=True' /etc/dnf/dnf.conf || echo 'keepcache=True' >> /etc/dnf/dnf.conf
+# DNF optimisations optional
+if [ -z "$INSTALL_DNF_OPTIMIZE" ]; then
+    read -p "Apply DNF optimizations? (fastestmirror, parallel downloads, etc.) (Y/n): " choice_dnf
+    if [[ "$choice_dnf" =~ ^[Nn]$ ]]; then
+        INSTALL_DNF_OPTIMIZE=false
+    else
+        INSTALL_DNF_OPTIMIZE=true
+    fi
+fi
+
+if [ "$INSTALL_DNF_OPTIMIZE" = true ]; then
+    grep -q '^fastestmirror=True' /etc/dnf/dnf.conf || echo 'fastestmirror=True' >> /etc/dnf/dnf.conf
+    grep -q '^max_parallel_downloads=10' /etc/dnf/dnf.conf || echo 'max_parallel_downloads=10' >> /etc/dnf/dnf.conf
+    grep -q '^defaultyes=True' /etc/dnf/dnf.conf || echo 'defaultyes=True' >> /etc/dnf/dnf.conf
+    grep -q '^keepcache=True' /etc/dnf/dnf.conf || echo 'keepcache=True' >> /etc/dnf/dnf.conf
+else
+    echo "[SKIP] DNF optimizations not applied."
+fi
 
 # Enable COPR repositories
 dnf copr enable -y theblackdon/kineticwe || handle_error "Enabling kineticwe COPR"
-# lionheartp/Hyprland COPR is required by noctalia – enable it unconditionally
 dnf copr enable -y lionheartp/Hyprland || handle_error "Enabling Hyprland COPR (required by noctalia)"
 
 # --- lgl-system-loadout optional ---
@@ -154,7 +150,7 @@ if [ "$INSTALL_HYPRLAND" = true ]; then
     dnf install -y hyprland || handle_error "Installing Hyprland"
 fi
 
-# SDDM (display manager) – made optional
+# SDDM (display manager) – optional
 if [ -z "$INSTALL_SDDM" ]; then
     read -p "Install SDDM display manager? (Y/n): " choice_sddm
     if [[ "$choice_sddm" =~ ^[Nn]$ ]]; then
@@ -180,21 +176,50 @@ dnf swap -y ffmpeg-free ffmpeg --allowerasing || handle_error "Swapping to full 
 dnf upgrade --refresh -y || handle_error "System Upgrade"
 dnf distro-sync -y || handle_error "Distro Sync"
 
-dnf install -y --skip-broken mesa-va-drivers-freeworld \
-  mesa-vulkan-drivers-freeworld mesa-dri-drivers \
-  vulkan-loader vulkan-tools || handle_error "Graphics"
-
-if ! grep -q "LIBVA_DRIVER_NAME=radeonsi" "$TARGET_HOME/.bashrc"; then
-    echo "export LIBVA_DRIVER_NAME=radeonsi" >> "$TARGET_HOME/.bashrc"
-    chown "$TARGET_USER":"$TARGET_USER" "$TARGET_HOME/.bashrc"
+# Graphics drivers and Vulkan optional
+if [ -z "$INSTALL_GRAPHICS_DRIVERS" ]; then
+    read -p "Install AMD graphics drivers and Vulkan support? (Y/n): " choice_gfx
+    if [[ "$choice_gfx" =~ ^[Nn]$ ]]; then
+        INSTALL_GRAPHICS_DRIVERS=false
+    else
+        INSTALL_GRAPHICS_DRIVERS=true
+    fi
 fi
-dnf install -y libva-utils || handle_error "Installing libva-utils"
+
+if [ "$INSTALL_GRAPHICS_DRIVERS" = true ]; then
+    echo "Installing graphics drivers..."
+    dnf install -y --skip-broken mesa-va-drivers-freeworld \
+      mesa-vulkan-drivers-freeworld mesa-dri-drivers \
+      vulkan-loader vulkan-tools || handle_error "Graphics"
+    dnf install -y libva-utils || handle_error "Installing libva-utils"
+
+    if ! grep -q "LIBVA_DRIVER_NAME=radeonsi" "$TARGET_HOME/.bashrc"; then
+        echo "export LIBVA_DRIVER_NAME=radeonsi" >> "$TARGET_HOME/.bashrc"
+        chown "$TARGET_USER":"$TARGET_USER" "$TARGET_HOME/.bashrc"
+    fi
+else
+    echo "[SKIP] AMD graphics drivers and Vulkan support not installed."
+fi
 
 ## Step 4 — Firewall and Virtualisation
 echo -e "\n---> Step 4: Firewall and Virtualisation"
 
-dnf install -y firewalld firewall-config || handle_error "Installing Firewalld"
-systemctl enable --now firewalld || handle_error "Enabling Firewalld"
+# Firewalld optional
+if [ -z "$INSTALL_FIREWALLD" ]; then
+    read -p "Install Firewalld and GUI (firewall-config)? (Y/n): " choice_fw
+    if [[ "$choice_fw" =~ ^[Nn]$ ]]; then
+        INSTALL_FIREWALLD=false
+    else
+        INSTALL_FIREWALLD=true
+    fi
+fi
+
+if [ "$INSTALL_FIREWALLD" = true ]; then
+    dnf install -y firewalld firewall-config || handle_error "Installing Firewalld"
+    systemctl enable --now firewalld || handle_error "Enabling Firewalld"
+else
+    echo "[SKIP] Firewalld not installed."
+fi
 
 is_installed_dnf() { rpm -q "$1" &>/dev/null; }
 
@@ -228,7 +253,7 @@ if [[ "$install_kvm" =~ ^[Yy]$ ]]; then
 fi
 
 ## Step 5 — Cachyos Kernel with sch-ext addons
-echo -e "\n---> Step 5: Cachyos Kernel with sch-ext addons"
+echo -e "\n---> Step 5: Cachyos Kernel with addons"
 
 # Ask about CachyOS only if not already decided by a flag
 if [ "$ASK_CACHYOS" = true ]; then
@@ -253,17 +278,22 @@ EOF
 
     dnf remove -y zram-generator-defaults || true
     dnf swap -y zram-generator-defaults cachyos-settings || handle_error "Swapping to cachyos-settings"
-    dnf install -y --skip-broken cachyos-settings scx-manager scx-scheds-git scx-tools-git || handle_error "Installing CachyOS Schedulers"
+    dnf install -y --skip-broken cachyos-settings scx-scheds-git scx-tools-git || handle_error "Installing CachyOS Schedulers"
     dracut -f || handle_error "Rebuilding initramfs (dracut)"
 else
     echo "[INFO] Skipping CachyOS Kernel Installation."
 fi
 
 ## Step 6 — User Applications
-echo -e "\n---> Step 6 User Applications"
-enable_copr() { dnf repolist enabled | grep -iq "${1/\//.*}" || dnf copr enable -y "$1"; }
-enable_copr "wehagy/protonplus"; enable_copr "ilyaz/LACT"; enable_copr "lihaohong/yazi"
+echo -e "\n---> Step 6: User Applications"
 
+# Helper to enable copr
+enable_copr() { dnf repolist enabled | grep -iq "${1/\//.*}" || dnf copr enable -y "$1"; }
+enable_copr "wehagy/protonplus"
+enable_copr "ilyaz/LACT"
+enable_copr "lihaohong/yazi"
+
+# Brave repository
 if [ ! -f /etc/yum.repos.d/brave-browser-nightly.repo ]; then
   echo "Adding Brave repository..."
   curl -fsSL https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo -o /etc/yum.repos.d/brave-browser-nightly.repo || handle_error "Adding Brave Nightly Repository"
@@ -271,213 +301,285 @@ else
   echo "Brave repository is already added."
 fi
 
-PACKAGES=(steam mangohud gamescope protontricks protonplus goverlay lact mpv loupe gnome-calculator qbittorrent brave-origin-nightly dolphin kde-partitionmanager flatpak yazi fastfetch zsh rsync duf btop tldr htop distrobox podman)
-
-if [ "$INSTALL_ALL_USER_APPS" = true ]; then
-    echo "[INFO] --all-apps used: installing all user applications without prompts."
-    INSTALL_ALL_APPS=true
-else
-    read -p "Do you want to install ALL recommended user applications? (Choosing 'no' will ask for each individually) (y/N): " install_all_choice
-    if [[ "$install_all_choice" =~ ^[Yy]$ ]]; then
-        INSTALL_ALL_APPS=true
+# --------- Group 1: Core desktop apps ---------
+echo -e "\n--- Group 1: Core Desktop Apps (dolphin, kitty, flatpak, zed, Brave, Bazaar) ---"
+read -p "Do you want to install ALL Group 1 apps? (y/N): " install_all_group1
+if [[ "$install_all_group1" =~ ^[Yy]$ ]]; then
+    echo "Installing all Group 1 apps..."
+    dnf install -y dolphin kitty flatpak brave-origin-nightly || handle_error "Group 1 dnf packages"
+    # Zed
+    su - "$TARGET_USER" -c "command -v zed &>/dev/null || [ -f ~/.local/bin/zed ]" || {
+        echo "Installing Zed editor..."
+        su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh"
+    }
+    # Bazaar
+    if command -v flatpak &>/dev/null; then
+        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo &>/dev/null || true
+        flatpak install -y flathub io.github.kolunmi.Bazaar || handle_error "Bazaar"
     else
-        INSTALL_ALL_APPS=false
+        echo "[WARNING] Flatpak not installed, skipping Bazaar."
     fi
+else
+    echo "You can now choose which Group 1 apps to install."
+    group1_packages=("dolphin" "kitty" "flatpak" "zed" "brave-origin-nightly" "bazaar")
+    for PKG in "${group1_packages[@]}"; do
+        case "$PKG" in
+            zed)
+                su - "$TARGET_USER" -c "command -v zed &>/dev/null || [ -f ~/.local/bin/zed ]" && echo "[SKIP] zed (already installed)" && continue
+                read -p "Install Zed editor? [y/N]: " c
+                [[ "$c" =~ ^[Yy]$ ]] && su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh"
+                ;;
+            bazaar)
+                if ! command -v flatpak &>/dev/null; then
+                    echo "[SKIP] Bazaar requires Flatpak which is not installed."
+                    continue
+                fi
+                if flatpak list 2>/dev/null | grep -q io.github.kolunmi.Bazaar; then
+                    echo "[SKIP] Bazaar (already installed)"
+                    continue
+                fi
+                read -p "Install Bazaar (Flathub) GUI package manager? [y/N]: " c
+                if [[ "$c" =~ ^[Yy]$ ]]; then
+                    flatpak install -y flathub io.github.kolunmi.Bazaar || echo "[FAIL] Bazaar"
+                fi
+                ;;
+            *)
+                if is_installed_dnf "$PKG"; then
+                    echo "[SKIP] $PKG (already installed)"
+                    continue
+                fi
+                read -p "Install $PKG? [y/N]: " c
+                [[ "$c" =~ ^[Yy]$ ]] && dnf install -y "$PKG" || echo "[FAIL] $PKG"
+                ;;
+        esac
+    done
 fi
 
-if [ "$INSTALL_ALL_APPS" = true ]; then
-    echo "Installing all user applications..."
-    for PKG in "${PACKAGES[@]}"; do
-        if is_installed_dnf "$PKG"; then
-            echo "[SKIP] $PKG (already installed)"
-        else
-            echo "Installing $PKG..."
-            dnf install -y "$PKG" || echo "[FAIL] $PKG"
-        fi
-    done
+# --------- Group 2: Gaming & utilities ---------
+echo -e "\n--- Group 2: Gaming & Utility Apps (steam, mangohud, gamescope, etc.) ---"
+group2_packages=("steam" "mangohud" "gamescope" "protontricks" "protonplus" "goverlay" "lact" "mpv" "loupe" "gnome-calculator" "qbittorrent" "kde-partitionmanager" "yazi" "fastfetch" "zsh" "rsync" "duf" "btop" "tldr" "htop" "distrobox" "podman")
+read -p "Do you want to install ALL Group 2 apps? (y/N): " install_all_group2
+if [[ "$install_all_group2" =~ ^[Yy]$ ]]; then
+    echo "Installing all Group 2 apps..."
+    dnf install -y --skip-broken "${group2_packages[@]}" || handle_error "Group 2 packages"
 else
-    echo "You can now choose which applications to install."
-    for PKG in "${PACKAGES[@]}"; do
+    echo "You can now choose which Group 2 apps to install."
+    for PKG in "${group2_packages[@]}"; do
         if is_installed_dnf "$PKG"; then
             echo "[SKIP] $PKG (already installed)"
             continue
         fi
         read -p "Install $PKG? [y/N]: " c
-        if [[ "$c" =~ ^[Yy]$ ]]; then
-            dnf install -y "$PKG" && echo "[OK] $PKG" || {
-                echo "[FAIL] $PKG"
-                [ "$PKG" = "brave-origin-nightly" ] && curl -fsS https://dl.brave.com/install.sh | FLAVOR=origin CHANNEL=nightly sh
-            }
-        fi
+        [[ "$c" =~ ^[Yy]$ ]] && dnf install -y "$PKG" || echo "[FAIL] $PKG"
     done
 fi
 
-# Zed (outside the main list)
-su - "$TARGET_USER" -c "command -v zed &>/dev/null || [ -f ~/.local/bin/zed ]" || {
-  read -p "Install Zed editor? [y/N]: " c
-  [[ "$c" =~ ^[Yy]$ ]] && su - "$TARGET_USER" -c "curl -f https://zed.dev/install.sh | sh"
-}
-
 # Firefox removal if Brave installed
 if is_installed_dnf "brave-origin-nightly" || is_installed_dnf "brave-origin"; then
-  is_installed_dnf "firefox" && read -p "Remove Firefox? [y/N]: " c && [[ "$c" =~ ^[Yy]$ ]] && dnf remove -y firefox
+  if is_installed_dnf "firefox"; then
+    read -p "Remove Firefox? [y/N]: " c
+    [[ "$c" =~ ^[Yy]$ ]] && dnf remove -y firefox
+  fi
 fi
 
-# Bazaar Flatpak installation
-if command -v flatpak &>/dev/null; then
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo &>/dev/null || true
-    if [ "$INSTALL_ALL_APPS" = true ]; then
-        echo "Installing Bazaar (GUI package manager) from Flathub..."
-        flatpak install -y flathub io.github.kolunmi.Bazaar || echo "[FAIL] Bazaar"
+## Step 7 — Oh My Zsh (optional)
+echo -e "\n---> Step 7: Oh My Zsh (optional)"
+read -p "Install Oh My Zsh and set zsh as default shell? (y/N): " install_omz
+if [[ "$install_omz" =~ ^[Yy]$ ]]; then
+    # Ensure zsh is installed
+    if ! is_installed_dnf "zsh"; then
+        echo "zsh is not installed. Installing now..."
+        dnf install -y zsh || handle_error "Installing zsh"
+    fi
+
+    echo "Installing Oh My Zsh (unattended) for user $TARGET_USER..."
+    # Run the installer as the target user with the exact command requested
+    sudo -u "$TARGET_USER" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
+        || handle_error "Oh My Zsh installation"
+
+    # Change the default shell to zsh for the target user
+    ZSH_PATH=$(which zsh)
+    if [ "$ZSH_PATH" != "" ]; then
+        echo "Changing default shell for $TARGET_USER to $ZSH_PATH..."
+        chsh -s "$ZSH_PATH" "$TARGET_USER" || handle_error "Changing shell to zsh"
     else
-        read -p "Install Bazaar (Flathub) GUI package manager? [y/N]: " c
-        if [[ "$c" =~ ^[Yy]$ ]]; then
-            flatpak install -y flathub io.github.kolunmi.Bazaar || echo "[FAIL] Bazaar"
-        fi
+        echo "[WARNING] zsh executable not found; shell not changed."
     fi
 else
-    echo "[INFO] Flatpak not installed – skipping Bazaar installation."
+    echo "[SKIP] Oh My Zsh installation."
 fi
 
-# =================================================================
-## Step 7 — Btrfs Snapshots, Compression & Snapper+grub‑btrfs Setup
-# =================================================================
-echo -e "\n---> Step 7: Btrfs Snapshots, Compression & System Recovery Setup"
+## Step 8 — Snapper & Btrfs snapshot integration (optional)
+echo -e "\n---> Step 8: Snapper & Btrfs snapshot integration"
 
-if [ "$DO_BTRFS_SETUP" = true ]; then
-    # 7.1 Required packages
-    dnf install -y snapper libdnf5-plugin-actions btrfs-assistant inotify-tools make git || handle_error "Installing Btrfs tools"
+# Track whether Snapper was installed for later reminder
+INSTALL_SNAPPER=false
 
-    # 7.2 Snapper configs
-    if [[ ! -d /.snapshots ]]; then
-        snapper -c root create-config / || handle_error "Creating root Snapper config"
-    fi
-    if [[ ! -d /home/.snapshots ]]; then
-        snapper -c home create-config /home || handle_error "Creating home Snapper config"
-    fi
+read -p "Set up Snapper & grub-btrfs for automatic snapshots on DNF transactions? (y/N): " install_snapper
+if [[ ! "$install_snapper" =~ ^[Yy]$ ]]; then
+    echo "[SKIP] Snapper integration not installed."
+else
+    INSTALL_SNAPPER=true
+fi
 
-    REAL_USER="${TARGET_USER}"
-    snapper -c root set-config ALLOW_USERS="$REAL_USER" SYNC_ACL=yes || handle_error "Setting root ACL"
-    snapper -c home set-config ALLOW_USERS="$REAL_USER" SYNC_ACL=yes || handle_error "Setting home ACL"
-    snapper -c home set-config TIMELINE_CREATE=no || handle_error "Disabling home timeline"
-
-    restorecon -RFv /.snapshots  2>/dev/null || true
-    restorecon -RFv /home/.snapshots 2>/dev/null || true
-
-    # 7.3 Timeline limits for root
-    sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="0"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="7"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="2"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="5"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="10"/' /etc/snapper/configs/root
-
-    # 7.4 updatedb exclusion
-    if grep -q '^PRUNENAMES' /etc/updatedb.conf; then
-        grep -q '\.snapshots' /etc/updatedb.conf || \
-            sed -i 's|^PRUNENAMES *= *"|PRUNENAMES = ".snapshots |' /etc/updatedb.conf
+if [ "$INSTALL_SNAPPER" = true ]; then
+    # Check if root filesystem is Btrfs
+    if ! findmnt -n -o FSTYPE / | grep -q btrfs; then
+        echo "[WARNING] Root filesystem is not Btrfs – Snapper integration cannot be set up. Skipping."
+        INSTALL_SNAPPER=false
     else
-        echo 'PRUNENAMES = ".snapshots"' >> /etc/updatedb.conf
-    fi
+        echo "Installing Snapper and dependencies..."
+        dnf install -y snapper libdnf5-plugin-actions btrfs-assistant inotify-tools make git python3 \
+            || handle_error "Snapper packages"
 
-    # 7.5 grub‑btrfs
-    tmpdir=$(mktemp -d)
-    trap 'rm -rf "$tmpdir"' EXIT
-    cd "$tmpdir"
-    git clone --depth 1 https://github.com/Antynea/grub-btrfs || handle_error "Cloning grub-btrfs"
-    cd grub-btrfs
+        # Create Snapper configs if they don't exist
+        [ -d /.snapshots ] || snapper -c root create-config / || handle_error "root snapper config"
+        [ -d /home/.snapshots ] || snapper -c home create-config /home || handle_error "home snapper config"
 
-    sed -i \
-        -e 's|^#GRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS=.*|GRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="rd.live.overlay.overlayfs=1"|' \
-        -e 's|^#GRUB_BTRFS_GRUB_DIRNAME=.*|GRUB_BTRFS_GRUB_DIRNAME="/boot/grub2"|' \
-        -e 's|^#GRUB_BTRFS_MKCONFIG=.*|GRUB_BTRFS_MKCONFIG=/usr/bin/grub2-mkconfig|' \
-        -e 's|^#GRUB_BTRFS_SCRIPT_CHECK=.*|GRUB_BTRFS_SCRIPT_CHECK=grub2-script-check|' \
-        config
+        # Fix SELinux
+        restorecon -RFv /.snapshots 2>/dev/null || true
+        restorecon -RFv /home/.snapshots 2>/dev/null || true
 
-    make install || handle_error "Installing grub-btrfs"
-    systemctl enable --now grub-btrfsd.service || handle_error "Enabling grub-btrfsd"
+        # Grant current user access
+        snapper -c root set-config ALLOW_USERS="$TARGET_USER" SYNC_ACL=yes || handle_error "root ACL"
+        snapper -c home set-config ALLOW_USERS="$TARGET_USER" SYNC_ACL=yes || handle_error "home ACL"
+        # Disable timeline for /home (only use manual/DNF snapshots)
+        snapper -c home set-config TIMELINE_CREATE=no || handle_error "home timeline off"
 
-    echo "==> Updating GRUB configuration..."
-    grub2-mkconfig -o /boot/grub2/grub.cfg || handle_error "Running grub2-mkconfig"
+        # Exclude .snapshots from updatedb
+        echo "Updating locate database configuration..."
+        if grep -q '^PRUNENAMES' /etc/updatedb.conf; then
+            grep -q '\.snapshots' /etc/updatedb.conf || \
+                sed -i 's|^PRUNENAMES *= *"|PRUNENAMES = ".snapshots |' /etc/updatedb.conf
+        else
+            echo 'PRUNENAMES = ".snapshots"' >> /etc/updatedb.conf
+        fi
 
-    cd /
-    rm -rf "$tmpdir"
-    trap - EXIT
+        # Install grub-btrfs
+        echo "Building and installing grub-btrfs..."
+        TMP_GRUB=$(mktemp -d)
+        cd "$TMP_GRUB"
+        git clone --depth 1 https://github.com/Antynea/grub-btrfs || handle_error "grub-btrfs clone"
+        cd grub-btrfs
+        sed -i \
+            -e 's|^#GRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS=.*|GRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="rd.live.overlay.overlayfs=1"|' \
+            -e 's|^#GRUB_BTRFS_GRUB_DIRNAME=.*|GRUB_BTRFS_GRUB_DIRNAME="/boot/grub2"|' \
+            -e 's|^#GRUB_BTRFS_MKCONFIG=.*|GRUB_BTRFS_MKCONFIG=/usr/bin/grub2-mkconfig|' \
+            -e 's|^#GRUB_BTRFS_SCRIPT_CHECK=.*|GRUB_BTRFS_SCRIPT_CHECK=grub2-script-check|' \
+            config
+        make install || handle_error "grub-btrfs make install"
+        systemctl enable --now grub-btrfsd.service || handle_error "grub-btrfsd service"
 
-    # 7.6 Snapper DNF5 integration scripts
-    mkdir -p /usr/local/bin
+        # Rebuild GRUB menu to include snapshots
+        echo "Regenerating GRUB configuration..."
+        grub2-mkconfig -o /boot/grub2/grub.cfg || handle_error "grub2-mkconfig"
 
-    cat << 'SCRIPT' > /usr/local/bin/snapper-pre.sh
-#!/usr/bin/env bash
-set -e
-PID="$1"
-STATE_DIR="/run/snapper-actions"
-mkdir -p "$STATE_DIR"
-chmod 700 "$STATE_DIR"
-if [[ ! -d /usr/lib/sysimage/libdnf5 ]]; then
-    mkdir -p /usr/lib/sysimage/libdnf5
-    restorecon -q /usr/lib/sysimage/libdnf5 2>/dev/null || true
-fi
-desc=$(/usr/local/bin/snapper-desc.sh "$PID")
-echo "$desc" > "$STATE_DIR/snapper_desc_${PID}"
-pre=$(snapper -c root create -c number -t pre -p -d "$desc") || exit 1
-echo "$pre" > "$STATE_DIR/snapper_pre_${PID}"
-SCRIPT
-    chmod 755 /usr/local/bin/snapper-pre.sh
+        # Create Snapper DNF5 action scripts
+        echo "Installing DNF5 Snapper integration scripts..."
 
-    cat << 'SCRIPT' > /usr/local/bin/snapper-desc.sh
-#!/usr/bin/env bash
+        cat > /usr/local/bin/snapper-desc.sh << 'DESCSCRIPT'
+#!/bin/bash
+# snapper-desc.sh - extract a snapshot description from the calling process
 PID="$1"
 cmd=$(ps -o command --no-headers -p "$PID" 2>/dev/null || echo "Unknown Task")
 case "$cmd" in
-    */dnf5daemon* | */packagekitd*) echo "GUI" ;;
-    *) echo "$cmd" ;;
+    */dnf5daemon* | */packagekitd*)
+        echo "GUI"
+        ;;
+    *)
+        echo "$cmd"
+        ;;
 esac
-SCRIPT
-    chmod 755 /usr/local/bin/snapper-desc.sh
+DESCSCRIPT
+        chmod 755 /usr/local/bin/snapper-desc.sh
 
-    cat << 'SCRIPT' > /usr/local/bin/snapper-gui-pkg.sh
-#!/usr/bin/env bash
+        cat > /usr/local/bin/snapper-gui-pkg.sh << 'GUIPKGSCRIPT'
+#!/bin/bash
+# snapper-gui-pkg.sh - capture GUI package actions for a nice description
 PID="$1"
 ACTION="$2"
 NAME="$3"
 STATE_DIR="/run/snapper-actions"
 DESC_FILE="$STATE_DIR/snapper_desc_${PID}"
 PKG_FILE="$STATE_DIR/snapper_gui_${PID}"
+
 desc=$(cat "$DESC_FILE" 2>/dev/null || echo "")
+# Only proceed for GUI transactions
 [[ "$desc" != "GUI" ]] && exit 0
+# Only capture first package to avoid overwriting
 [[ -f "$PKG_FILE" ]] && exit 0
+
 case "$ACTION" in
     I|U|D|R) echo "GUI install ${NAME}" > "$PKG_FILE" ;;
     E|O)     echo "GUI remove ${NAME}" > "$PKG_FILE" ;;
 esac
-SCRIPT
-    chmod 755 /usr/local/bin/snapper-gui-pkg.sh
+GUIPKGSCRIPT
+        chmod 755 /usr/local/bin/snapper-gui-pkg.sh
 
-    cat << 'SCRIPT' > /usr/local/bin/snapper-post.sh
-#!/usr/bin/env bash
+        cat > /usr/local/bin/snapper-pre.sh << 'PRESCRIPT'
+#!/bin/bash
+# snapper-pre.sh - create pre snapshot and store metadata
+PID="$1"
+STATE_DIR="/run/snapper-actions"
+
+mkdir -p "$STATE_DIR"
+chmod 700 "$STATE_DIR"
+
+# Ensure libdnf5 sysimage directory exists to avoid packages.toml error
+if [[ ! -d /usr/lib/sysimage/libdnf5 ]]; then
+    mkdir -p /usr/lib/sysimage/libdnf5
+    restorecon -q /usr/lib/sysimage/libdnf5 2>/dev/null || true
+fi
+
+desc=$(/usr/local/bin/snapper-desc.sh "$PID")
+echo "$desc" > "$STATE_DIR/snapper_desc_${PID}"
+
+pre=$(snapper -c root create -c number -t pre -p -d "$desc") || exit 1
+echo "$pre" > "$STATE_DIR/snapper_pre_${PID}"
+PRESCRIPT
+        chmod 755 /usr/local/bin/snapper-pre.sh
+
+        cat > /usr/local/bin/snapper-post.sh << 'POSTSCRIPT'
+#!/bin/bash
+# snapper-post.sh - create post snapshot and clean up
 PID="$1"
 STATE_DIR="/run/snapper-actions"
 DESC_FILE="$STATE_DIR/snapper_desc_${PID}"
 PRE_FILE="$STATE_DIR/snapper_pre_${PID}"
 GUI_FILE="$STATE_DIR/snapper_gui_${PID}"
+
 desc=$(cat "$DESC_FILE" 2>/dev/null || echo "")
 pre=$(cat "$PRE_FILE" 2>/dev/null || echo "")
 gui_pkg=$(cat "$GUI_FILE" 2>/dev/null || echo "")
+
+# Nothing to do if no pre snapshot exists
 [[ -z "$pre" ]] && exit 0
+
+# Improve description with GUI info
 if [[ -n "$gui_pkg" ]]; then
     desc="$gui_pkg"
     snapper -c root modify -d "$desc" "$pre" || true
 fi
-/usr/local/bin/snapper-wal-checkpoint.sh || true
-snapper -c root create -c number -t post --pre-number "$pre" -d "$desc"
-rm -f "$DESC_FILE" "$PRE_FILE" "$GUI_FILE"
-SCRIPT
-    chmod 755 /usr/local/bin/snapper-post.sh
 
-    cat << 'SCRIPT' > /usr/local/bin/snapper-wal-checkpoint.sh
-#!/usr/bin/env bash
-python3 - <<'EOF'
-import sqlite3, time, sys
+# Best-effort WAL checkpoint (non-fatal)
+/usr/local/bin/snapper-wal-checkpoint.sh || true
+
+# Create post snapshot linked to pre
+snapper -c root create -c number -t post --pre-number "$pre" -d "$desc"
+
+# Clean up runtime files
+rm -f "$DESC_FILE" "$PRE_FILE" "$GUI_FILE"
+POSTSCRIPT
+        chmod 755 /usr/local/bin/snapper-post.sh
+
+        cat > /usr/local/bin/snapper-wal-checkpoint.sh << 'WALSCRIPT'
+#!/bin/bash
+# snapper-wal-checkpoint.sh - force SQLite WAL checkpoint for rpmdb
+python3 - << 'EOF'
+import sqlite3
+import sys
+import time
+
 DB = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
 for i in range(10):
     try:
@@ -492,31 +594,35 @@ for i in range(10):
     time.sleep(0.5)
 sys.exit(1)
 EOF
-SCRIPT
-    chmod 755 /usr/local/bin/snapper-wal-checkpoint.sh
+WALSCRIPT
+        chmod 755 /usr/local/bin/snapper-wal-checkpoint.sh
 
-    mkdir -p /etc/dnf/libdnf5-plugins/actions.d
-    cat << 'CONFIG' > /etc/dnf/libdnf5-plugins/actions.d/snapper.actions
-# Snapper integration with libdnf5 (DNF5 transactions)
-pre_transaction::::/usr/local/bin/snapper-pre.sh ${pid}pre_transaction:*:in::/usr/local/bin/snapper-gui-pkg.sh ${pid} ${pkg.action} ${pkg.name}pre_transaction:*:out::/usr/local/bin/snapper-gui-pkg.sh ${pid} ${pkg.action} ${pkg.name}post_transaction::::/usr/local/bin/snapper-post.sh ${pid}
-CONFIG
+        # Restore SELinux contexts on the new scripts
+        restorecon -v /usr/local/bin/snapper-*.sh 2>/dev/null || true
 
-    restorecon -v /usr/local/bin/snapper-*.sh 2>/dev/null || true
+        # Install DNF5 actions configuration
+        mkdir -p /etc/dnf/libdnf5-plugins/actions.d
+        cat > /etc/dnf/libdnf5-plugins/actions.d/snapper.actions << 'ACTIONS'
+# Snapper pre/post snapshots for DNF5
+# PRE snapshot
+pre_transaction::::/usr/local/bin/snapper-pre.sh ${pid}
 
-    # 7.7 Enable Snapper timers
-    systemctl enable --now snapper-timeline.timer snapper-cleanup.timer || handle_error "Enabling Snapper timers"
+# Capture GUI package info (incoming packages)
+pre_transaction:*:in::/usr/local/bin/snapper-gui-pkg.sh ${pid} ${pkg.action} ${pkg.name}
 
-    # 7.8 Btrfs compression
-    echo "Enabling Btrfs compression (zstd:1) in /etc/fstab..."
-    if grep -q "btrfs" /etc/fstab; then
-        cp /etc/fstab /etc/fstab.bkp.$(date +%Y%m%d_%H%M%S)
-        sed -i '/ btrfs / s/subvol=[^ ,]*/&,compress=zstd:1/' /etc/fstab
-        echo "[INFO] Btrfs compression enabled. Original fstab backed up."
-    else
-        echo "[WARNING] No btrfs entries found in /etc/fstab. Skipping compression setup."
+# Capture GUI package info (outgoing packages)
+pre_transaction:*:out::/usr/local/bin/snapper-gui-pkg.sh ${pid} ${pkg.action} ${pkg.name}
+
+# POST snapshot (with WAL fix)
+post_transaction::::/usr/local/bin/snapper-post.sh ${pid}
+ACTIONS
+
+        # Enable Snapper timers (timeline snapshots for root only)
+        systemctl enable --now snapper-timeline.timer || handle_error "snapper-timeline.timer"
+        systemctl enable --now snapper-cleanup.timer || handle_error "snapper-cleanup.timer"
+
+        echo "Snapper integration completed."
     fi
-else
-    echo "[INFO] Btrfs snapshot setup skipped (--no-btrfs-setup or declined)."
 fi
 
 # ===================================================
@@ -525,28 +631,17 @@ fi
 echo -e "\n==================================================="
 echo " INSTALLATION COMPLETE "
 echo "==================================================="
-echo "⚠️ MANUAL CONFIGURATIONS REQUIRED ⚠️"
+echo "MANUAL CONFIGURATIONS REQUIRED"
 echo "---------------------------------------------------"
-if [ "$DO_BTRFS_SETUP" != false ]; then
-echo " 1. GRUB has already been updated with snapshot entries."
-fi
-
-if [ "$DO_BTRFS_SETUP" != true ]; then
-echo " 1. Btrfs snapshots were NOT set up. If you configure them later,"
-echo " run:  grub2-mkconfig -o /boot/grub2/grub.cfg"
-echo ""
-fi
-
-echo ""
 if [ "$INSTALL_SDDM" = true ]; then
-    echo " 2. SDDM is installed and enabled. To log in via SDDM:"
+    echo " 1. SDDM is installed and enabled. To log in via SDDM:"
     if [ "$INSTALL_HYPRLAND" = true ]; then
         echo "    - Choose Hyprland (Wayland) or Kineticwe (KDE) session."
     else
         echo "    - Choose Kineticwe (KDE) session."
     fi
 else
-    echo " 2. SDDM was NOT installed. To start desktop from TTY:"
+    echo " 1. SDDM was NOT installed. To start desktop from TTY:"
     echo "    - After logging in, run: start-kineticwe"
     if [ "$INSTALL_HYPRLAND" = true ]; then
     echo "    - For Hyprland, run: start-hyprland"
@@ -554,14 +649,16 @@ else
 fi
 echo "    - For Noctalia, enable Polkit in Security settings."
 echo ""
-echo " 3. In KDE System Settings:"
+echo " 2. In KDE System Settings:"
 echo "    - Disable File Search, Plasma Search, and KRunner History."
-echo ""
-if [ "$DO_BTRFS_SETUP" = true ]; then
-    echo " 4. Snapper is fully integrated (no extra steps required)."
-else
-    echo " 4. Snapper was NOT installed. To enable automatic snapshots, refer to"
-    echo "    Snapper documentation and remember to update GRUB afterwards."
+
+if findmnt -n -o FSTYPE / | grep -q btrfs; then
+    if [ "$INSTALL_SNAPPER" = false ]; then
+        echo ""
+        echo " 3. Snapper & grub-btrfs integration was skipped."
+        echo "    - Update GRUB with:"
+        echo "      sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
+    fi
 fi
 echo "==================================================="
 
