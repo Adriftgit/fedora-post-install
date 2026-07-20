@@ -19,7 +19,6 @@ INSTALL_FFMPEG_LIBS=""
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --user-pkgs) INSTALL_ALL_USER_PKGS=true ;;
         --cachyos) INSTALL_CACHYOS_KERNEL=true; ASK_CACHYOS=false ;;
         --no-cachyos) INSTALL_CACHYOS_KERNEL=false; ASK_CACHYOS=false ;;
         --sddm) INSTALL_SDDM=true ;;
