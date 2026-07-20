@@ -2,7 +2,7 @@
 
 My custom settings and repos with apps applied for fedora 44 headless install (automated script). 
 
-Except for the Desktop Enviornment and shell and sddm everything is optional.
+Except for the Desktop Enviornment, shell, sddm and dnf changes everything is optional. will be adding arguments for more optional components soon. 
 
 Disclaimers
 - I am still learning so expect heavy use of AI.
