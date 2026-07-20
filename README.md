@@ -2,7 +2,7 @@
 
 My custom settings and repos with apps applied for fedora 44 headless install (automated script). 
 
-Except for the Desktop Enviornment and shell everything is optional.
+Except for the Desktop Enviornment, shell and Copr repos everything is optional.
 
 Disclaimers
 - I am still learning so expect heavy use of AI.
@@ -35,14 +35,6 @@ Optimizes DNF performance by adding
 	keepcache=True
 
 to sudo nano /etc/dnf/dnf.conf
-
-Allows custom cloudfare DNS servers
-		
-		sudo mkdir -p '/etc/systemd/resolved.conf.d' && sudo -e '/etc/systemd/resolved.conf.d/99-dns-over-tls.conf'
-		[Resolve]
-		DNS=1.1.1.2#security.cloudflare-dns.com 1.0.0.2#security.cloudflare-dns.com 2606:4700:4700::1112#security.cloudflare-dns.com 			2606:4700:4700::1002#security.cloudflare-dns.com
-		DNSOverTLS=yes
-		Domains=~.
 
 Disables NetworkManager-wait-online.service
 		
@@ -99,7 +91,7 @@ User Applications and repos if not added before
 - wehagy/protonplus
 - ilyaz/LACT
 - lihaohong/yazi
-- Installs steam mangohud gamescope protontricks protonplus goverlay lact mpv loupe gnome-calculator qbittorrent brave-origin-nightly dolphin kde-partitionmanager flatpak ZED editor yazi fastfetch zsh rsync duf btop tldr htop distrobox podman oh-my-zsh
+- Installs steam mangohud gamescope protontricks protonplus goverlay lact mpv loupe gnome-calculator qbittorrent brave-origin-nightly dolphin kde-partitionmanager flatpak ZED editor yazi fastfetch zsh rsync duf btop tldr htop distrobox podman oh-my-zsh startship
 - Installs Bazaar (from Bazzite) through flathub
 
 ---
