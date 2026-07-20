@@ -2,7 +2,7 @@
 
 My custom settings and repos with apps applied for fedora 44 headless install (automated script). 
 
-Except for the Desktop Enviornment and shell everything is optional.
+Except for the Desktop Enviornment and shell and sddm everything is optional.
 
 Disclaimers
 - I am still learning so expect heavy use of AI.
@@ -19,69 +19,33 @@ Run using
 What it does
 
 1. Optimises DNF performance
-2. Enables base Repositories with Choice to install Kineticwe with Noctalia and/or Hyprland
-3. Installs Mesa, Vulkan Drivers and ffmpg Codecs
-4. Firewall and Virtualization
-5. Cachyos Kernel with sch-ext addons
+2. Enables base Repositories to install Kineticwe with Noctalia
+3. Virtualization
+5. Cachyos Kernel with addons
 6. User Applications (listed below)
-7. Btrfs Snapshots, Compression & System Recovery Setup
+
 
 ---
 Optimizes DNF performance by adding
  
-	fastestmirror=True
 	max_parallel_downloads=10
 	defaultyes=True
-	keepcache=True
 
 to sudo nano /etc/dnf/dnf.conf
 
-Allows custom cloudfare DNS servers
-		
-		sudo mkdir -p '/etc/systemd/resolved.conf.d' && sudo -e '/etc/systemd/resolved.conf.d/99-dns-over-tls.conf'
-		[Resolve]
-		DNS=1.1.1.2#security.cloudflare-dns.com 1.0.0.2#security.cloudflare-dns.com 2606:4700:4700::1112#security.cloudflare-dns.com 			2606:4700:4700::1002#security.cloudflare-dns.com
-		DNSOverTLS=yes
-		Domains=~.
-
 Disables NetworkManager-wait-online.service
 		
-		sudo systemctl disable NetworkManager-wait-online.service
+	sudo systemctl disable NetworkManager-wait-online.service
 ---
 Enables and installs following custom repositories and base packages
-- linuxgamerlife/lgl-system-loadout (optional)
-- dnf-plugins-core
+- linuxgamerlife/lgl-system-loadout
 - lionheartp/Hyprland with theblackdon/kineticwe 
-- Hyprland (optional)
-- Can be used to manually add dank material shell and add it to only run with hyprland
-  - Add following to ~/.config/hypr/hyprland.lua to achieve this
-  
-		hl.on("hyprland.start", function()
-		hl.exec_cmd("dms run")
-		end)
-			
-- RPM Fusion both free and non-free branches
 - Configures display manager (SDDM) with
 sudo systemctl set-default graphical.target 
 sudo systemctl enable --force sddm.service
 
 ---
-Installs Mesa, Vulkan Drivers and ffmpg Codecs
-- Swap Fedora's stripped-down codecs for full ffmpeg
-- Installs Graphics stack Mesa, OpenGL, Vulkan drivers
-- Installs AMD (radeonsi) libva-utils
-
----
-Firewall, Docker, Virtualisation
-- Firewall with
-
-		sudo dnf install -y firewalld firewall-config
-  		sudo systemctl enable --now firewalld
-- Docker with
-
-  		curl -fsSL https://get.docker.com | sh |
-  		systemctl enable --now docker
-- Virt-manager with
+Virtualisation
 
   		sudo dnf install -y @virtualization
   		sudo systemctl enable libvirtd
@@ -92,7 +56,6 @@ Installs custom performance kernel (CachyOS)
 - bieszczaders/kernel-cachyos
 - bieszczaders/kernel-cachyos-addons
 - Sets latest CachyOS kernel as the default boot entry
-- Installs scx-manager scx-scheduler and scx-tools -git
 
 ---	
 User Applications and repos if not added before
@@ -101,13 +64,6 @@ User Applications and repos if not added before
 - lihaohong/yazi
 - Installs steam mangohud gamescope protontricks protonplus goverlay lact mpv loupe gnome-calculator qbittorrent brave-origin-nightly dolphin kde-partitionmanager flatpak ZED editor yazi fastfetch zsh rsync duf btop tldr htop distrobox podman oh-my-zsh
 - Installs Bazaar (from Bazzite) through flathub
-
----
-Btrfs Snapshots, Compression & System Recovery Setup from
-- https://github.com/SysGuides/sysguides-snapper-fedora
-- Adds entry to grub to enable Btrfs compression
-- Enables Btrfs dnf transaction snapshots
-- Enables snapshot boot from grub
 
 ---
 Manual steps
