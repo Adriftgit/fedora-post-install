@@ -37,8 +37,8 @@ Optimizes DNF performance by adding
 to sudo nano /etc/dnf/dnf.conf
 
 Disables NetworkManager-wait-online.service
-		
-		sudo systemctl disable NetworkManager-wait-online.service
+
+	sudo systemctl disable NetworkManager-wait-online.service
 ---
 Enables and installs following custom repositories and base packages
 - linuxgamerlife/lgl-system-loadout (optional)
