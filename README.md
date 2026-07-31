@@ -4,7 +4,7 @@ My custom, automated post-installation script for Fedora 44 headless install. Ev
 
 Disclaimers 
 
-	Learning Project: I am still learning, so expect heavy use of AI assistance in crafting and optimizing this script.
+	Learning Project: Expect heavy use of AI assistance in crafting and optimizing this script.
 
 	Attribution: This project aggregates and compiles packages and repositories created by other developers. 
 	All credit and intellectual property rights (if any) belongs entirely to their respective authors.
