@@ -15,7 +15,6 @@ SKIP_DE=false
 SKIP_SL=false
 SKIP_SDDM=false
 SKIP_VIRT=false
-SKIP_DISTRO=false
 SKIP_CACHY=false
 SKIP_APPS=false
 SKIP_SHADER=false
@@ -31,7 +30,6 @@ for arg in "$@"; do
         --skip-sl)     SKIP_SL=true ;;
         --skip-sddm)   SKIP_SDDM=true ;;
         --skip-virt)   SKIP_VIRT=true ;;
-        --skip-distro) SKIP_DISTRO=true ;;
         --skip-cachy)  SKIP_CACHY=true ;;
         --skip-apps)   SKIP_APPS=true ;;
         --skip-shader) SKIP_SHADER=true ;;
@@ -169,83 +167,6 @@ if [ "$SKIP_VIRT" = false ]; then
     fi
 else
     echo "[SKIP] Virtualization (flag)"
-fi
-
-echo "Distrobox Setup"
-if [ "$SKIP_DISTRO" = false ]; then
-    if ask_yes_no "Install Distrobox stack?"; then
-        CONFIG_DIR="${TARGET_HOME}/.config/distrobox"
-        INI_FILE="${CONFIG_DIR}/distrobox.ini"
-
-        if ! command -v distrobox &> /dev/null || ! command -v podman &> /dev/null; then
-            echo -e "Podman and Distrobox not found - Installing..."
-            sudo dnf install -y podman distrobox
-        else
-            echo -e "Skipping Podman and Distrobox installation (already installed)"
-        fi
-
-        echo -e "[2/4] Configuring Rootless Podman mappings for ${TARGET_USER}..."
-        if ! grep -q "^${TARGET_USER}:" /etc/subuid 2>/dev/null; then
-            echo "Assigning subuids for ${TARGET_USER}..."
-            sudo usermod --add-subuids 100000-165535 "${TARGET_USER}"
-        fi
-
-        if ! grep -q "^${TARGET_USER}:" /etc/subgid 2>/dev/null; then
-            echo "Assigning subgids for ${TARGET_USER}..."
-            sudo usermod --add-subgids 100000-165535 "${TARGET_USER}"
-        fi
-
-        sudo -u "$TARGET_USER" podman system migrate 2>/dev/null || true
-
-        echo -e "[3/4] Creating declarative distrobox.ini manifest..."
-        sudo -u "$TARGET_USER" mkdir -p "${CONFIG_DIR}"
-        sudo -u "$TARGET_USER" tee "${INI_FILE}" > /dev/null << 'EOF'
-
-# Arch Linux container (pre-configured with dev tools)
-[arch]
-image=ghcr.io/ublue-os/arch-toolbox:latest
-additional_packages="git base-devel neofetch htop curl wget"
-init=false
-nvidia=false
-pull=true
-root=false
-replace=false
-start_now=false
-
-# Ubuntu container
-[ubuntu]
-image=ghcr.io/ublue-os/ubuntu-toolbox:latest
-additional_packages="git build-essential curl wget"
-init=false
-nvidia=false
-pull=true
-root=false
-replace=false
-start_now=false
-EOF
-        echo "Created manifest at: ${INI_FILE}"
-
-        echo -e "[4/4] Adding shell aliases..."
-        SHELL_HELPER='# Distrobox Bazzite-style convenience aliases
-alias dbx="distrobox"
-alias dbx-assemble="distrobox assemble create --file ~/.config/distrobox/distrobox.ini"
-alias dbx-list="distrobox list"'
-
-        for rc in "${TARGET_HOME}/.bashrc" "${TARGET_HOME}/.zshrc"; do
-            if [ -f "$rc" ]; then
-                if ! sudo -u "$TARGET_USER" grep -q "dbx-assemble" "$rc"; then
-                    echo -e "\n${SHELL_HELPER}" | sudo -u "$TARGET_USER" tee -a "$rc" > /dev/null
-                    echo "Added shell aliases to $rc"
-                else
-                    echo "Shell aliases already present in $rc"
-                fi
-            fi
-        done
-    else
-        echo "[SKIP] Distrobox stack"
-    fi
-else
-    echo "[SKIP] Distrobox (flag)"
 fi
 
 # =========================================================================
