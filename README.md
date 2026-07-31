@@ -27,7 +27,8 @@ Enables Repositories for base system application
 
 	RPM Fusion free 
 	RPM Fusion non-free
-Desktop Shell & Environment: Installs Kineticwe with Noctalia and lgl-system-loadout
+	
+Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-loadout
 
 	linuxgamerlife/lgl-system-loadout
 	lionheartp/Hyprland
@@ -84,8 +85,7 @@ User Applications
 	- atim/starship
 	- faugus/faugus-launcher
 	
-Audio and video codecs 
-Swaps to proprietary versions as Fedora excludes it due to patent restrictions
+Audio and video codecs - Swaps to proprietary versions as Fedora excludes it due to patent restrictions
 
 	Audio: Swaps ffmpeg-free for full ffmpeg
 
