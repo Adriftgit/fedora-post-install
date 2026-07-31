@@ -1,6 +1,7 @@
 Fedora Post-Install Script
 
-My custom, automated post-installation script for Fedora 44 headless install. Everything in this script is modular and optional, designed to setup fully configured desktop and gaming environment. Recommended to install at least Desktop Environment and Desktop Shell
+My custom, automated post-installation script for Fedora 44 headless install. Everything in this script is modular and optional, designed to setup fully configured desktop and gaming environment. 
+Recommended to install at least Desktop Environment and Desktop Shell
 
 Disclaimers 
 
