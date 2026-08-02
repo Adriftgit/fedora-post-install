@@ -93,7 +93,6 @@ Audio and video codecs - Swaps to proprietary versions as Fedora excludes it due
 
 	Video & Graphics:
 	- Swaps mesa-va-drivers and mesa-vulkan-drivers for -freeworld variants.
-	- libavcodec-freeworldInstalls 
 	- GStreamer plugins (good, bad-free, bad-freeworld, ugly, ugly-free, openh264, libav)
 
 Terminal UI Customization
