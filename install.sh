@@ -3,17 +3,27 @@
 
 set -euo pipefail
 
+# ──── ROOT CHECK ────
+if [ "$EUID" -eq 0 ]; then
+    echo "ERROR: Do not run this script as root!"
+    echo "Run as your normal user account with sudo available."
+    exit 1
+fi
+
 # ── Define Environment Variables ──────────────────────────────────────────
-# Grabs the user running the script (or the original user if run via sudo)
 TARGET_USER="${SUDO_USER:-$USER}"
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+
+# Validate user exists
+if [ -z "$TARGET_HOME" ] || [ ! -d "$TARGET_HOME" ]; then
+    echo "ERROR: Invalid user or home directory for $TARGET_USER" >&2
+    exit 1
+fi
 
 # ── Parse command line arguments ──────────────────────────────────────────
 SKIP_DNF=false
 SKIP_RPM=false
 SKIP_DE=false
-SKIP_SL=false
-SKIP_SDDM=false
 SKIP_VIRT=false
 SKIP_DISTRO=false
 SKIP_CACHY=false
@@ -22,23 +32,23 @@ SKIP_SHADER=false
 SKIP_SHELL=false
 SKIP_UPDATE=false
 SKIP_WAIT=false
+SKIP_CODEC=false
 
 for arg in "$@"; do
     case "$arg" in
-        --skip-dnf)    SKIP_DNF=true ;;
-        --skip-rpm)    SKIP_RPM=true ;;
-        --skip-de)     SKIP_DE=true ;;
-        --skip-sl)     SKIP_SL=true ;;
-        --skip-sddm)   SKIP_SDDM=true ;;
-        --skip-virt)   SKIP_VIRT=true ;;
+        --skip-dnf)   SKIP_DNF=true ;;
+        --skip-rpm)   SKIP_RPM=true ;;
+        --skip-de)    SKIP_DE=true ;;
+        --skip-virt)  SKIP_VIRT=true ;;
         --skip-distro) SKIP_DISTRO=true ;;
-        --skip-cachy)  SKIP_CACHY=true ;;
-        --skip-apps)   SKIP_APPS=true ;;
+        --skip-cachy) SKIP_CACHY=true ;;
+        --skip-apps)  SKIP_APPS=true ;;
         --skip-shader) SKIP_SHADER=true ;;
-        --skip-shell)  SKIP_SHELL=true ;;
+        --skip-shell) SKIP_SHELL=true ;;
         --skip-update) SKIP_UPDATE=true ;;
-        --skip-wait)   SKIP_WAIT=true ;;
-        *) echo "Unknown option: $arg"; exit 1 ;;
+        --skip-wait)  SKIP_WAIT=true ;;
+        --skip-codec) SKIP_CODEC=true ;;
+        *) echo "Unknown option: $arg" >&2; exit 1 ;;
     esac
 done
 
@@ -51,17 +61,34 @@ warn() {
     echo "[WARNING] $*" >&2
 }
 
+error_exit() {
+    echo "[ERROR] $*" >&2
+    exit 1
+}
+
 enable_copr_if_needed() {
     local copr_repo="$1"
-    if ! sudo dnf copr list 2>/dev/null | grep -qF "$copr_repo"; then
-        sudo dnf copr enable -y "$copr_repo" || warn "Failed to enable COPR: $copr_repo"
+    local repo_file_name="_copr:copr.fedorainfracloud.org:${copr_repo/\//:}.repo"
+
+    if ls /etc/yum.repos.d/_copr*"${copr_repo//\//-}"*.repo &>/dev/null 2>&1 || \
+       ls /etc/yum.repos.d/"${repo_file_name}" &>/dev/null 2>&1; then
+        echo "[SKIP] COPR $copr_repo already enabled"
+        return 0
+    fi
+
+    echo "Enabling COPR: $copr_repo"
+
+    if ! sudo dnf copr enable -y "$copr_repo"; then
+        warn "Failed to enable COPR: $copr_repo"
+        return 1
     fi
 }
 
 ask_yes_no() {
     local prompt="$1"
-    local default="${2:-N}"   # Default: N
+    local default="${2:-N}"
     local answer
+
     while true; do
         read -r -p "$prompt [y/N]: " answer
         case "${answer:-$default}" in
@@ -73,20 +100,20 @@ ask_yes_no() {
 }
 
 echo "──────────────────────────────────────────"
-echo " Fedora Post-Install Setup - Modular"
+echo " Fedora Post-Install Setup"
 echo "──────────────────────────────────────────"
 
 # =========================================================================
 # STAGE 1 – RPM Fusion Repos
 # =========================================================================
-echo "RPM Fusion Repos"
+echo -e "\n▶ Stage 1: RPM Fusion Repos"
 if [ "$SKIP_RPM" = false ]; then
     if ask_yes_no "Enable RPM Fusion (free & non‑free) repositories?"; then
         echo "Checking RPM Fusion repos..."
         if ! is_installed_dnf "rpmfusion-free-release" || ! is_installed_dnf "rpmfusion-nonfree-release"; then
             echo "Enabling RPM Fusion Free..."
-            sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
-            sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+            sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm || warn "RPM Repo instllation failed"
+            sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm  || warn "RPM Non free Repo instllation failed"
         else
             echo "[SKIP] RPM Fusion Free and Non‑Free is already installed."
         fi
@@ -100,15 +127,15 @@ fi
 # =========================================================================
 # STAGE 2 – Desktop Environment and shell
 # =========================================================================
-echo "Desktop Environment and Shell setup"
+echo -e "\n▶ Stage 2: Desktop Environment Setup"
 if [ "$SKIP_DE" = false ]; then
     if ask_yes_no "Set up Desktop Environment (Noctalia & kineticwe)?"; then
         echo "Checking Kineticwe and Noctalia..."
         if ! is_installed_dnf "kineticwe" || ! is_installed_dnf "noctalia-git"; then
-            echo "Installing.."
+            echo "Installing..."
             enable_copr_if_needed "lionheartp/Hyprland"
             enable_copr_if_needed "theblackdon/kineticwe"
-            sudo dnf install -y --skip-unavailable kineticwe noctalia-git
+            sudo dnf install -y --skip-unavailable kineticwe noctalia-git || warn "Desktop Environment and shell instllation failed"
         else
             echo "[SKIP] Kineticwe and Noctalia are already installed."
         fi
@@ -116,75 +143,45 @@ if [ "$SKIP_DE" = false ]; then
         echo "[SKIP] Desktop Environment setup"
     fi
 else
-    echo "[SKIP] Desktop Environment (flag)"
+    echo "[SKIP] Desktop Environment (--skip-de flag)"
 fi
 
 # =========================================================================
-# STAGE 3 – GUI setup wizard and login Manager
+# STAGE 3 – Virtualization
 # =========================================================================
-echo "Post install gui setup wizard (for additional packages not covered in this script)"
-if [ "$SKIP_SL" = false ]; then
-    if ask_yes_no "Set up lgl-system-loadout?"; then
-        echo "Enabling Optional package for DE..."
-        enable_copr_if_needed "linuxgamerlife/lgl-system-loadout"
-        sudo dnf install -y --skip-unavailable lgl-system-loadout
-    else
-        echo "[SKIP] GUI setup wizard"
-    fi
-else
-    echo "[SKIP] GUI setup wizard (flag)"
-fi
-
-echo "Setup Login Manager"
-if [ "$SKIP_SDDM" = false ]; then
-    if ask_yes_no "Set up SDDM?"; then
-        echo "Enabling Display Manager for DE..."
-        sudo dnf install -y --skip-unavailable sddm
-        sudo systemctl set-default graphical.target
-        sudo systemctl enable --force sddm.service
-    else
-        echo "[SKIP] Login Manager setup"
-    fi
-else
-    echo "[SKIP] Login Manager (flag)"
-fi
-
-# =========================================================================
-# STAGE 4 – Virtualization
-# =========================================================================
-echo "Setup Virtualization"
+echo -e "\n▶ Stage 3: Virtualization"
 if [ "$SKIP_VIRT" = false ]; then
-    if ask_yes_no "Install virtualization stack (virt-manager, libvirt)?"; then
+    if ask_yes_no "Install virtualization environment?"; then
         if ! command -v virt-manager &> /dev/null; then
-            echo "virt-manager not found. Installing virtualization environment..."
-            sudo dnf groupinstall -y @virtualization
+            echo "Installing virtualization environment..."
+            sudo dnf install -y @virtualization || warn "Virtualization environment instllation failed"
             sudo systemctl enable libvirtd --now
             sudo usermod -aG libvirt "$TARGET_USER"
             echo "Virtualization stack installed - Restart or logout for group membership to take effect."
         else
-            echo "virt-manager is already installed. Skipping installation."
+            echo "[SKIP] virt-manager is already installed."
         fi
     else
         echo "[SKIP] Virtualization"
     fi
 else
-    echo "[SKIP] Virtualization (flag)"
+    echo "[SKIP] Virtualization (--skip-virt flag)"
 fi
 
-echo "Distrobox Setup"
+echo -e "\n▶ Stage 3.5: Distrobox Setup"
 if [ "$SKIP_DISTRO" = false ]; then
     if ask_yes_no "Install Distrobox stack?"; then
         CONFIG_DIR="${TARGET_HOME}/.config/distrobox"
         INI_FILE="${CONFIG_DIR}/distrobox.ini"
 
         if ! command -v distrobox &> /dev/null || ! command -v podman &> /dev/null; then
-            echo -e "Podman and Distrobox not found - Installing..."
-            sudo dnf install -y podman distrobox
+            echo "Installing Podman and Distrobox..."
+            sudo dnf install -y podman distrobox || warn "Distrobox instllation failed"
         else
-            echo -e "Skipping Podman and Distrobox installation (already installed)"
+            echo "[SKIP] Podman and Distrobox already installed"
         fi
 
-        echo -e "[2/4] Configuring Rootless Podman mappings for ${TARGET_USER}..."
+        echo "Configuring Rootless Podman mappings for ${TARGET_USER}..."
         if ! grep -q "^${TARGET_USER}:" /etc/subuid 2>/dev/null; then
             echo "Assigning subuids for ${TARGET_USER}..."
             sudo usermod --add-subuids 100000-165535 "${TARGET_USER}"
@@ -197,7 +194,7 @@ if [ "$SKIP_DISTRO" = false ]; then
 
         sudo -u "$TARGET_USER" podman system migrate 2>/dev/null || true
 
-        echo -e "[3/4] Creating declarative distrobox.ini manifest..."
+        echo "Creating declarative distrobox.ini manifest..."
         sudo -u "$TARGET_USER" mkdir -p "${CONFIG_DIR}"
         sudo -u "$TARGET_USER" tee "${INI_FILE}" > /dev/null << 'EOF'
 
@@ -225,7 +222,7 @@ start_now=false
 EOF
         echo "Created manifest at: ${INI_FILE}"
 
-        echo -e "[4/4] Adding shell aliases..."
+        echo "Adding shell aliases..."
         SHELL_HELPER='# Distrobox Bazzite-style convenience aliases
 alias dbx="distrobox"
 alias dbx-assemble="distrobox assemble create --file ~/.config/distrobox/distrobox.ini"
@@ -233,11 +230,11 @@ alias dbx-list="distrobox list"'
 
         for rc in "${TARGET_HOME}/.bashrc" "${TARGET_HOME}/.zshrc"; do
             if [ -f "$rc" ]; then
-                if ! sudo -u "$TARGET_USER" grep -q "dbx-assemble" "$rc"; then
-                    echo -e "\n${SHELL_HELPER}" | sudo -u "$TARGET_USER" tee -a "$rc" > /dev/null
+                if ! sudo -u "$TARGET_USER" grep -q "dbx-assemble" "$rc" 2>/dev/null; then
+                    sudo -u "$TARGET_USER" tee -a "$rc" > /dev/null <<< "$SHELL_HELPER"
                     echo "Added shell aliases to $rc"
                 else
-                    echo "Shell aliases already present in $rc"
+                    echo "[SKIP] Shell aliases already present in $rc"
                 fi
             fi
         done
@@ -245,21 +242,18 @@ alias dbx-list="distrobox list"'
         echo "[SKIP] Distrobox stack"
     fi
 else
-    echo "[SKIP] Distrobox (flag)"
+    echo "[SKIP] Distrobox (--skip-distro flag)"
 fi
 
 # =========================================================================
-# STAGE 5 – Performance Optimasations (for kernel, shader size, DNF and network)
+# STAGE 4 – Performance Optimizations
 # =========================================================================
-echo "Performance Optimisations"
+echo -e "\n▶ Stage 4: Performance Optimizations"
 
 if [ "$SKIP_DNF" = false ]; then
     if ask_yes_no "Apply DNF optimisations?"; then
         echo "Applying DNF Optimisations..."
-        grep -q 'max_parallel_downloads' /etc/dnf/dnf.conf || {
-            echo 'max_parallel_downloads=10' | sudo tee -a /etc/dnf/dnf.conf > /dev/null
-            echo 'defaultyes=True'           | sudo tee -a /etc/dnf/dnf.conf > /dev/null
-        }
+        sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
         echo "DNF configuration updated."
     else
         echo "[SKIP] DNF optimisations"
@@ -269,60 +263,66 @@ else
 fi
 
 if [ "$SKIP_WAIT" = false ]; then
-if ask_yes_no "Disable Network Manager Wait?"; then
-        sudo systemctl disable NetworkManager-wait-online.service || warn "Failed to disable NetworkManager-wait-online.service"
-        echo "NetworkManager-wait-online.service disabled."
+    if ask_yes_no "Disable Network Manager Wait?"; then
+        sudo systemctl disable NetworkManager-wait-online.service || warn "Failed to disable service"
+        echo "Network Manager wait service disabled."
     else
         echo "[SKIP] Disable Network Manager Wait"
     fi
 else
-    echo "[SKIP] Disable Network Manager Wait (flag)"
+    echo "[SKIP] Disable Network Manager Wait (--skip-wait flag)"
 fi
 
 if [ "$SKIP_CACHY" = false ]; then
-    echo -e "\nCachyOS Kernel with addons"
+    echo "CachyOS Kernel with addons"
 
     if rpm -q kernel-cachyos &>/dev/null; then
-            echo "[INFO] CachyOS Kernel is already installed. Skipping..."
-        else
-            if ask_yes_no "Install CachyOS Kernel and Performance Schedulers?"; then
+        echo "[INFO] CachyOS Kernel is already installed. Skipping..."
+    else
+        if ask_yes_no "Install CachyOS Kernel and Performance Schedulers?"; then
             enable_copr_if_needed "bieszczaders/kernel-cachyos"
             enable_copr_if_needed "bieszczaders/kernel-cachyos-addons"
 
             sudo dnf install -y --skip-unavailable \
                 kernel-cachyos kernel-cachyos-devel-matched libdnf5-plugin-actions || warn "CachyOS kernel install failed"
-        if rpm -q kernel-cachyos &>/dev/null; then
-            sudo mkdir -p /etc/dnf/libdnf5-plugins/actions.d
 
-            sudo tee /etc/dnf/libdnf5-plugins/actions.d/cachy-default.actions > /dev/null << 'EOF'
+            if rpm -q kernel-cachyos &>/dev/null; then
+                if [ -d /boot/grub2 ]; then
+                    sudo mkdir -p /etc/dnf/libdnf5-plugins/actions.d
+
+                    sudo tee /etc/dnf/libdnf5-plugins/actions.d/cachy-default.actions > /dev/null << 'EOF'
 # Set the latest CachyOS kernel as the default boot entry
 post_transaction:kernel*:in::/usr/bin/sh -c "/usr/bin/grubby --set-default=/boot/$(ls /boot | grep vmlinuz.*cachy | sort -V | tail -1)"
 EOF
+                else
+                    warn "GRUB not detected. You may need to manually select the CachyOS kernel in your boot menu."
+                fi
 
-        if dnf list --available cachyos-settings &>/dev/null; then
+                if dnf list --available cachyos-settings &>/dev/null; then
                     sudo dnf swap -y zram-generator-defaults cachyos-settings || warn "swapping cachyos-settings failed"
                     sudo dracut -f || warn "dracut regeneration failed"
-                    sudo dnf install -y scx-scheds-git scx-tools-git scx-manager || warn "cachyos schedule manager installation failed"
+                    sudo dnf install -y scx-scheds-git scx-tools-git || warn "cachyos schedule manager installation failed"
                 else
-                    echo "[WARNING] cachyos-settings package not available."
+                    warn "cachyos-settings package not available."
                 fi
             else
-                echo "[WARNING] CachyOS Kernel was not detected after installation."
+                warn "CachyOS Kernel was not detected after installation."
             fi
         else
             echo "[SKIP] CachyOS Kernel setup"
         fi
     fi
 else
-    echo "[SKIP] CachyOS Kernel (flag)"
+    echo "[SKIP] CachyOS Kernel (--skip-cachy flag)"
 fi
 
 if [ "$SKIP_SHADER" = false ]; then
-    if ask_yes_no "Increase shader cache size to 12GB (for less stutters)?"; then
+    if ask_yes_no "Increase shader cache size to 12GB (Can fix stutters on AMD GPUs)?"; then
         echo "Setting MESA_SHADER_CACHE_MAX_SIZE=12GB..."
         sudo -u "$TARGET_USER" mkdir -p "$TARGET_HOME/.config/environment.d"
+
         sudo -u "$TARGET_USER" tee "$TARGET_HOME/.config/environment.d/gaming.conf" > /dev/null << 'EOF'
-# Increase AMD's shader cache size to 12GB
+# Increase shader cache size to 12GB
 MESA_SHADER_CACHE_MAX_SIZE=12GB
 EOF
         echo "Shader cache configuration written."
@@ -330,154 +330,255 @@ EOF
         echo "[SKIP] Shader cache size"
     fi
 else
-    echo "[SKIP] Shader cache size (flag)"
+    echo "[SKIP] Shader cache size (--skip-shader flag)"
 fi
 
 # =========================================================================
-# STAGE 6 – User Applications (core, utilities, gaming)
+# STAGE 5 – Applications
 # =========================================================================
-echo "User Applications"
+echo -e "\n▶ Stage 5: Applications"
 if [ "$SKIP_APPS" = false ]; then
-    if ask_yes_no "Install user applications (core, utilities, gaming)?"; then
+    if ask_yes_no "Install Applications?"; then
+
+        # Detect if flatpak is already available (e.g., pre-installed)
+        if command -v flatpak &>/dev/null; then
+            FLATPAK_AVAILABLE=true
+        else
+            FLATPAK_AVAILABLE=false
+        fi
 
         # --------- Group 1: Core Apps ---------
-        echo -e "\nGroup 1: Core Apps (dolphin, kitty, flatpak, flathub, flatseal, zed, brave, bazaar)"
-        if ask_yes_no "Install ALL Core Apps?"; then
-            sudo dnf install -y dnf-plugins-core flatpak dolphin kitty || warn "Core system packages install failed"
-            # Add brave
-            sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo || warn "Brave origin install failed"
-            sudo dnf install -y brave-origin-nightly || warn "Brave install failed"
-            # set up Flatpak
-            flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-            flatpak update --user -y
-            flatpak install --user -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
-            flatpak install --user -y flathub dev.zed.Zed  || warn "Zed install failed"
-            flatpak install --user -y flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
+        echo -e "\n  Group 1: Core Apps"
+
+        if ask_yes_no "  Install SDDM (Login manager)?"; then
+            sudo dnf install -y --skip-unavailable sddm
+            sudo systemctl set-default graphical.target
+            sudo systemctl enable --force sddm.service || warn "Login manager install failed"
+        fi
+
+        if ask_yes_no "  Install Flatpak (and configure Flathub & Flatseal)?"; then
+            sudo -u "$TARGET_USER" flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+            sudo -u "$TARGET_USER" flatpak update --user -y
+            sudo -u "$TARGET_USER" flatpak install --user -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
+            FLATPAK_AVAILABLE=true
         else
-            echo "Core Apps Installation skipped"
+            echo "  [SKIP] Flatpak setup"
+        fi
+
+        if ask_yes_no "  Install Dolphin (file manager)?"; then
+            sudo dnf install -y --skip-unavailable dolphin || warn "Dolphin install failed"
+        fi
+
+        if ask_yes_no "  Install Kitty (terminal)?"; then
+            sudo dnf install -y --skip-unavailable kitty || warn "Kitty install failed"
+        fi
+
+        if ask_yes_no "  Install Brave origin (browser)?"; then
+            sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo || warn "Brave repo install failed"
+            sudo dnf install -y brave-origin-nightly || warn "Brave install failed"
+        fi
+
+        if ask_yes_no "  Install MPV (media player)?"; then
+            sudo dnf install -y --skip-unavailable mpv || warn "MPV install failed"
+        fi
+
+        if ask_yes_no "  Install Loupe (image viewer)?"; then
+            sudo dnf install -y --skip-unavailable loupe || warn "Loupe install failed"
         fi
 
         # --------- Group 2: Utility Apps ---------
-        echo -e "\nGroup 2: Utility Apps (mpv, loupe, calculator, qbittorrent, partitionmanager, fastfetch, rsync, duf, btop, htop)"
-        if ask_yes_no "Install ALL utility apps?"; then
-            sudo dnf install -y --skip-unavailable mpv loupe gnome-calculator qbittorrent kde-partitionmanager fastfetch rsync duf btop htop || warn "Utility Apps Installation failed"
-        else
-            echo "Utility Apps Installation skipped"
+        echo -e "\n  Group 2: Utility Apps"
+
+        if ask_yes_no "  Install Calculator?"; then
+            sudo dnf install -y --skip-unavailable gnome-calculator || warn "GNOME Calculator install failed"
+        fi
+
+        if ask_yes_no "  Install qBittorrent?"; then
+            sudo dnf install -y --skip-unavailable qbittorrent || warn "qBittorrent install failed"
+        fi
+
+        if ask_yes_no "  Install KDE Partition Manager?"; then
+            sudo dnf install -y --skip-unavailable kde-partitionmanager || warn "KDE Partition Manager install failed"
+        fi
+
+        if ask_yes_no "  Install Fastfetch (TUI tool for displaying system info)?"; then
+            sudo dnf install -y --skip-unavailable fastfetch || warn "Fastfetch install failed"
+        fi
+
+        if ask_yes_no "  Install rsync (TUI tool for transferring and synchronizing files)?"; then
+            sudo dnf install -y --skip-unavailable rsync || warn "rsync install failed"
+        fi
+
+        if ask_yes_no "  Install duf (TUI Disk Usage utility)?"; then
+            sudo dnf install -y --skip-unavailable duf || warn "duf install failed"
+        fi
+
+        if ask_yes_no "  Install btop (TUI Resource Monitor)?"; then
+            sudo dnf install -y --skip-unavailable btop || warn "btop install failed"
+        fi
+
+        if ask_yes_no "  Install htop (TUI process viewer)?"; then
+            sudo dnf install -y --skip-unavailable htop || warn "htop install failed"
+        fi
+
+        if ask_yes_no "  Install KWallet Manager (To disable kwallet service if needed)?"; then
+            sudo dnf install -y --skip-unavailable kwalletmanager5 || warn "KWallet Manager install failed"
         fi
 
         # --------- Group 3: Gaming Apps ---------
-        echo -e "\nGroup 3: Gaming Apps (steam, mangohud, gamescope, protontricks, goverlay)"
-        if ask_yes_no "Install ALL Gaming apps?"; then
-            sudo dnf install -y steam mangohud gamescope protontricks goverlay || warn "Gaming Apps Installation failed"
+        echo -e "\n  Group 3: Gaming Apps"
+
+        if ask_yes_no "  Install Steam?"; then
+            sudo dnf install -y steam || warn "Steam install failed"
+        fi
+
+        if ask_yes_no "  Install MangoHud (In game overlay for monitoring GPU/CPU usage,FPS)?"; then
+            sudo dnf install -y mangohud || warn "MangoHud install failed"
+        fi
+
+        if ask_yes_no "  Install Gamescope (isolated compositor for HDR,FSR etc.)?"; then
+            sudo dnf install -y gamescope || warn "Gamescope install failed"
+        fi
+
+        if ask_yes_no "  Install Protontricks (To install windows tools required for games, mods)?"; then
+            sudo dnf install -y protontricks || warn "Protontricks install failed"
+        fi
+
+        if ask_yes_no "  Install Goverlay (GUI tool for mangohud)?"; then
+            sudo dnf install -y goverlay || warn "GOverlay install failed"
+        fi
+
+        # --------- Group 4: Flatpak Apps ---------
+        echo -e "\n  Group 4: Flatpak Apps"
+        if [ "$FLATPAK_AVAILABLE" = false ]; then
+            echo "  [SKIP] Flatpak apps skipped because Flatpak is not available."
         else
-            echo "Gaming Apps Installation skipped"
-        fi
+            if ask_yes_no "  Install Zed editor (text and code editor)?"; then
+                sudo -u "$TARGET_USER" flatpak install --user -y flathub dev.zed.Zed || warn "Zed install failed"
+            fi
 
-        # --------- Group 4: Content Creation apps ---------
-        echo -e "\nGroup 4: Content Creation apps"
+            if ask_yes_no "  Install Bazaar (app store)?"; then
+                sudo -u "$TARGET_USER" flatpak install --user -y flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
+            fi
 
-        if ask_yes_no "Install kdenlive?"; then
-            if ! is_installed_dnf "kdenlive"; then
-                sudo dnf install -y kdenlive || warn "kdenlive install failed"
-            else
-                echo "[SKIP] kdenlive already installed"
+            if ask_yes_no "  Install Kdenlive (Video Editor)?"; then
+                sudo -u "$TARGET_USER" flatpak install --user -y flathub org.kde.kdenlive || warn "kdenlive install failed"
+            fi
+
+            if ask_yes_no "  Install Krita (Image Editor)?"; then
+                sudo -u "$TARGET_USER" flatpak install --user -y flathub org.kde.krita || warn "Krita install failed"
+            fi
+
+            if ask_yes_no "  Install Audacity (Audio editor)?"; then
+                sudo -u "$TARGET_USER" flatpak install --user -y flathub org.audacityteam.Audacity || warn "audacity install failed"
+            fi
+
+            if ask_yes_no "  Install DistroShelf (Distrobox gui)?"; then
+                sudo -u "$TARGET_USER" flatpak install --user -y flathub com.ranfdev.DistroShelf || warn "DistroShelf install failed"
+            fi
+
+            if ask_yes_no "  Install ProtonPlus (To check and install proton versions)?"; then
+                sudo -u "$TARGET_USER" flatpak install --user -y flathub com.vysp3r.ProtonPlus || warn "ProtonPlus install failed"
+            fi
+
+            if ask_yes_no "  Install ProtonUp-Qt (ProtonPlus alternative)?"; then
+                sudo -u "$TARGET_USER" flatpak install --user -y flathub net.davidotek.pupgui2 || warn "ProtonUp-Qt install failed"
             fi
         fi
 
-        if ask_yes_no "Install audacity?"; then
-            flatpak install --user -y flathub org.audacityteam.Audacity || warn "audacity install failed"
-        fi
-
-        if ask_yes_no "Install krita?"; then
-            if ! is_installed_dnf "krita"; then
-                sudo dnf install -y krita || warn "krita install failed"
-            else
-                echo "[SKIP] krita already installed"
-            fi
-        fi
-
-        # --------- Group 5: Apps that require repo ---------
-        echo -e "\nGroup 5: Apps that require repo"
-        if ask_yes_no "Install and set up yazi?"; then
+        # --------- Group 5: Apps Requiring custom Repos ---------
+        echo -e "\n  Group 5: Apps requiring custom repos"
+        if ask_yes_no "  Install and set up yazi (TUI file manager)?"; then
             if ! is_installed_dnf "yazi"; then
-                sudo dnf copr enable -y lihaohong/yazi
-                sudo dnf install -y yazi || warn "yazi install failed"
+                if enable_copr_if_needed "lihaohong/yazi"; then
+                    sudo dnf install -y yazi || warn "yazi install failed"
+                fi
             else
-                echo "[SKIP] yazi (already installed)"
+                echo "  [SKIP] yazi (already installed)"
             fi
         fi
 
-        if ask_yes_no "Install and set up faugus-launcher?"; then
+        if ask_yes_no "  Install and set up faugus-launcher (Lightweight game launcher)?"; then
             if ! is_installed_dnf "faugus-launcher"; then
-                sudo dnf copr enable -y faugus/faugus-launcher
-                sudo dnf install -y faugus-launcher || warn "faugus-launcher install failed"
+                if enable_copr_if_needed "faugus/faugus-launcher"; then
+                    sudo dnf install -y faugus-launcher || warn "faugus-launcher install failed"
+                fi
             else
-                echo "[SKIP] faugus-launcher (already installed)"
+                echo "  [SKIP] faugus-launcher (already installed)"
             fi
         fi
 
-        if ask_yes_no "Install and set up protonplus?"; then
-            if ! is_installed_dnf "protonplus"; then
-                sudo dnf copr enable -y wehagy/protonplus
-                sudo dnf install -y protonplus || warn "protonplus install failed"
+        if ask_yes_no "  Install lgl-system-loadout (Alternate GUI app for setting up Fedora)?"; then
+            if ! is_installed_dnf "lgl-system-loadout"; then
+                if enable_copr_if_needed "linuxgamerlife/lgl-system-loadout"; then
+                    sudo dnf install -y --skip-unavailable lgl-system-loadout
+                fi
             else
-                echo "[SKIP] protonplus (already installed)"
+                echo "  [SKIP] lgl-system-loadout (already installed)"
             fi
         fi
 
-        if ask_yes_no "Install and set up LACT?"; then
+        if ask_yes_no "  Install and set up LACT (GPU overclocking tool)?"; then
             if ! is_installed_dnf "lact"; then
-                sudo dnf copr enable -y ilyaz/LACT
-                sudo dnf install -y lact || warn "lact install failed"
+                if enable_copr_if_needed "ilyaz/LACT"; then
+                    sudo dnf install -y lact || warn "lact install failed"
+                fi
             else
-                echo "[SKIP] lact (already installed)"
+                echo "  [SKIP] lact (already installed)"
             fi
         fi
 
     else
-        echo "Core, Utility, Gaming, and Multimedia Apps Installation skipped"
+        echo "[SKIP] User Apps Installation"
     fi
 else
-    echo "[SKIP] User applications (flag)"
+    echo "[SKIP] User applications (--skip-apps flag)"
 fi
 
 # =========================================================================
-# STAGE 7 – Video and audio codecs setup
+# STAGE 6 – Video and Audio Codecs Setup
 # =========================================================================
-echo "Video and audio codecs"
-if ask_yes_no "Install proprietary audio codecs?"; then
-    sudo dnf swap ffmpeg-free ffmpeg --allowerasing || warn "proprietary audio codecs swap failed"
+echo -e "\n▶ Stage 6: Video and Audio Codecs"
+if [ "$SKIP_CODEC" = false ]; then
+    if ask_yes_no "Install proprietary audio codecs?"; then
+        sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y || warn "proprietary audio codecs swap failed"
+    else
+        echo "[SKIP] Proprietary audio codec Installation"
+    fi
+
+    if ask_yes_no "Install proprietary video codecs?"; then
+        sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld --allowerasing -y || warn "Mesa swap failed"
+        sudo dnf swap mesa-vulkan-drivers mesa-vulkan-drivers-freeworld --allowerasing -y || warn "Vulkan swap failed"
+        sudo dnf install libavcodec-freeworld --allowerasing -y || warn "proprietary libva swap failed"
+        sudo dnf install --setopt="install_weak_deps=False" -y \
+            gstreamer1-plugins-good \
+            gstreamer1-plugins-bad-free \
+            gstreamer1-plugins-bad-freeworld \
+            gstreamer1-plugins-ugly \
+            gstreamer1-plugins-ugly-free \
+            gstreamer1-plugin-openh264 \
+            gstreamer1-plugin-libav \
+            --exclude=PackageKit-gstreamer-plugin || warn "gstreamer plugin swap failed"
+    else
+        echo "[SKIP] Proprietary video codecs Installation"
+    fi
 else
-    echo "Proprietary audio codec Installation skipped"
-fi
-
-if ask_yes_no "Install proprietary video codecs?"; then
-    sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld --allowerasing -y || warn "Mesa swap failed"
-    sudo dnf swap mesa-vulkan-drivers mesa-vulkan-drivers-freeworld --allowerasing -y || warn "Vulkan swap failed"
-    sudo dnf install libavcodec-freeworld -y || warn "proprietary libva swap failed"
-    sudo dnf install --setopt="install_weak_deps=False" \
-        gstreamer1-plugins-good \
-        gstreamer1-plugins-bad-free \
-        gstreamer1-plugins-bad-freeworld \
-        gstreamer1-plugins-ugly \
-        gstreamer1-plugins-ugly-free \
-        gstreamer1-plugin-openh264 \
-        gstreamer1-plugin-libav \
-        --exclude=PackageKit-gstreamer-plugin || warn "gstreamer plugin swap failed"
-else
-    echo "Proprietary video codecs Installation skipped"
+    echo "[SKIP] Video and audio codecs (--skip-codec flag)"
 fi
 
 # =========================================================================
-# STAGE 8 – TUI Shell setup (zsh, starship)
+# STAGE 7 – TUI Shell Setup (zsh, fish, starship)
 # =========================================================================
-echo "TUI Shell setup"
+echo -e "\n▶ Stage 7: TUI Shell Setup"
 if [ "$SKIP_SHELL" = false ]; then
     zsh_installed=false
     fish_installed=false
+    SHELL_CHOICE="${SHELL_CHOICE:-skip}"
 
-    # Ask which shell to install (e.g., --shell fish)
-    if [ -z "${SHELL_CHOICE:-}" ]; then
+    command -v zsh &>/dev/null && zsh_installed=true
+    command -v fish &>/dev/null && fish_installed=true
+
+    if [ "$SHELL_CHOICE" = "skip" ]; then
         if ask_yes_no "Would you like to install and set up a custom shell (zsh or fish)?"; then
             while true; do
                 read -r -p "Which shell? (zsh/fish): " shell_ans
@@ -501,7 +602,7 @@ if [ "$SKIP_SHELL" = false ]; then
         if command -v zsh &>/dev/null; then
             zsh_installed=true
             if ask_yes_no "Change default shell to zsh?"; then
-                sudo chsh -s "$(command -v zsh)" "$TARGET_USER" || warn "Could not change shell to zsh"
+                sudo chsh -s "/usr/bin/zsh" "$TARGET_USER" || warn "Could not change shell to zsh"
             else
                 echo "[SKIP] Changing default shell to zsh"
             fi
@@ -516,7 +617,7 @@ if [ "$SKIP_SHELL" = false ]; then
         if command -v fish &>/dev/null; then
             fish_installed=true
             if ask_yes_no "Change default shell to fish?"; then
-                sudo chsh -s "$(command -v fish)" "$TARGET_USER" || warn "Could not change shell to fish"
+                sudo chsh -s "/usr/bin/fish" "$TARGET_USER" || warn "Could not change shell to fish"
             else
                 echo "[SKIP] Changing default shell to fish"
             fi
@@ -526,10 +627,11 @@ if [ "$SKIP_SHELL" = false ]; then
     fi
 
     # --- STARSHIP ---
-    if ask_yes_no "Set up starship?"; then
+    if ask_yes_no "Set up starship prompt?"; then
         if ! is_installed_dnf "starship"; then
-            sudo dnf copr enable -y atim/starship
-            sudo dnf install -y starship || warn "starship install failed"
+            if enable_copr_if_needed "atim/starship"; then
+                sudo dnf install -y starship || warn "starship install failed"
+            fi
         fi
 
         if command -v starship &>/dev/null; then
@@ -538,36 +640,39 @@ if [ "$SKIP_SHELL" = false ]; then
             sudo -u "$TARGET_USER" starship preset gruvbox-rainbow -o "$TARGET_HOME/.config/starship.toml" || \
                 warn "Could not apply Starship preset"
 
-            # Configure starship based on the chosen/installed shell
-            if [ "$fish_installed" = true ] || { [ "${SHELL_CHOICE,,}" = "fish" ] && command -v fish &>/dev/null; }; then
-                if ask_yes_no "Configure Starship for fish shell?"; then
-                    fish_rc="$TARGET_HOME/.config/fish/config.fish"
-                    init_cmd_fish='starship init fish | source'
-                    echo "Configuring Starship for fish..."
-                    sudo -u "$TARGET_USER" mkdir -p "$TARGET_HOME/.config/fish"
-                    sudo -u "$TARGET_USER" touch "$fish_rc"
-                    if ! sudo -u "$TARGET_USER" grep -q "starship init" "$fish_rc"; then
-                        echo -e "\n# Starship prompt setup" | sudo -u "$TARGET_USER" tee -a "$fish_rc" > /dev/null
-                        echo "$init_cmd_fish" | sudo -u "$TARGET_USER" tee -a "$fish_rc" > /dev/null
-                    fi
+            if [ "$fish_installed" = true ]; then
+                echo "Configuring Starship for fish..."
+                fish_rc="$TARGET_HOME/.config/fish/config.fish"
+                sudo -u "$TARGET_USER" mkdir -p "$(dirname "$fish_rc")"
+                sudo -u "$TARGET_USER" touch "$fish_rc"
+
+                if ! sudo -u "$TARGET_USER" grep -q "starship init" "$fish_rc" 2>/dev/null; then
+                    echo -e "\n# Starship prompt setup" | sudo -u "$TARGET_USER" tee -a "$fish_rc" > /dev/null
+                    echo "starship init fish | source" | sudo -u "$TARGET_USER" tee -a "$fish_rc" > /dev/null
+                else
+                    echo "[SKIP] Starship already configured in fish"
                 fi
-            elif [ "$zsh_installed" = true ] || { [ "${SHELL_CHOICE,,}" = "zsh" ] && command -v zsh &>/dev/null; }; then
-                shell_rc="$TARGET_HOME/.zshrc"
-                init_cmd='eval "$(starship init zsh)"'
+            elif [ "$zsh_installed" = true ]; then
                 echo "Configuring Starship for zsh..."
+                shell_rc="$TARGET_HOME/.zshrc"
                 sudo -u "$TARGET_USER" touch "$shell_rc"
-                if ! sudo -u "$TARGET_USER" grep -q "starship init" "$shell_rc"; then
+
+                if ! sudo -u "$TARGET_USER" grep -q "starship init" "$shell_rc" 2>/dev/null; then
                     echo -e "\n# Starship prompt setup" | sudo -u "$TARGET_USER" tee -a "$shell_rc" > /dev/null
-                    echo "$init_cmd" | sudo -u "$TARGET_USER" tee -a "$shell_rc" > /dev/null
+                    echo 'eval "$(starship init zsh)"' | sudo -u "$TARGET_USER" tee -a "$shell_rc" > /dev/null
+                else
+                    echo "[SKIP] Starship already configured in zsh"
                 fi
             else
+                echo "Configuring Starship for bash..."
                 shell_rc="$TARGET_HOME/.bashrc"
-                init_cmd='eval "$(starship init bash)"'
-                echo "Custom shell skipped. Defaulting Starship config to bash..."
                 sudo -u "$TARGET_USER" touch "$shell_rc"
-                if ! sudo -u "$TARGET_USER" grep -q "starship init" "$shell_rc"; then
+
+                if ! sudo -u "$TARGET_USER" grep -q "starship init" "$shell_rc" 2>/dev/null; then
                     echo -e "\n# Starship prompt setup" | sudo -u "$TARGET_USER" tee -a "$shell_rc" > /dev/null
-                    echo "$init_cmd" | sudo -u "$TARGET_USER" tee -a "$shell_rc" > /dev/null
+                    echo 'eval "$(starship init bash)"' | sudo -u "$TARGET_USER" tee -a "$shell_rc" > /dev/null
+                else
+                    echo "[SKIP] Starship already configured in bash"
                 fi
             fi
         fi
@@ -575,36 +680,37 @@ if [ "$SKIP_SHELL" = false ]; then
         echo "[SKIP] Starship setup"
     fi
 else
-    echo "[SKIP] Shell setup (flag)"
+    echo "[SKIP] Shell setup (--skip-shell flag)"
 fi
 
 # =========================================================================
-# STAGE 9 – Full system update
+# STAGE 8 – Full System Update
 # =========================================================================
-echo "System update"
+echo -e "\n▶ Stage 8: System Update"
 if [ "$SKIP_UPDATE" = false ]; then
-    if ask_yes_no "Perform full system update (dnf upgrade & distro‑sync)?"; then
-        echo -e "\nFull system update..."
-        sudo dnf upgrade --refresh -y || warn "System upgrade encountered errors"
-        sudo dnf distro-sync -y || warn "Distro-sync encountered errors"
+    if ask_yes_no "Perform full system update (updates dnf and flatpak packages)?"; then
+        echo "Full system update..."
+        sudo dnf upgrade --refresh -y || warn "System update failed"
+        sudo -u "$TARGET_USER" flatpak update --user -y || warn "flatpak update failed"
     else
         echo "[SKIP] System update"
     fi
 else
-    echo "[SKIP] System update (flag)"
+    echo "[SKIP] System update (--skip-update flag)"
 fi
 
-# ===================================================
-# Final messages & reboot
-# ===================================================
+# =========================================================================
+# Final Messages & Summary
+# =========================================================================
 echo -e "\n==================================================="
 echo " INSTALLATION COMPLETE "
 echo "==================================================="
+echo ""
 echo "MANUAL CONFIGURATIONS REQUIRED"
 echo "---------------------------------------------------"
 echo " 1. If starting the desktop from TTY, use cmd:"
 echo "    - start-kineticwe"
-echo " 2. For Noctalia admin prompt"
+echo " 2. For Noctalia admin prompt:"
 echo "    - enable Polkit in Security settings."
 echo " 3. Update grub:"
 echo "    - sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
@@ -613,10 +719,4 @@ echo "    - Disable File Search, Plasma Search, and KRunner History."
 echo "==================================================="
 
 echo -e "\nSystem changes require a reboot to take effect."
-
-if ask_yes_no "Would you like to reboot the system now?"; then
-    echo "Rebooting system..."
-    sudo reboot
-else
-    echo "Reboot cancelled. Please remember to manually run 'sudo reboot' later."
-fi
+exit 0
