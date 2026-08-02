@@ -19,7 +19,7 @@ Run using
 	sudo dnf install git -y
 	git clone https://github.com/Adriftgit/Fedora-post-install/
 	cd Fedora-post-install
-	chmod +x ./install.sh
+	chmod +x install.sh
 	./install.sh
 	
 ---	
