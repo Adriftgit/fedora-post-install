@@ -37,11 +37,12 @@ Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-lo
 	
 Login manager
 
-	Configures system to start with SDDM display manager
+	Configures system to start with SDDM Login manager
 	
 Virtualization
 
 	Installs virtualization packages and grants user permissions to manage virtual machines.
+	Installs distrobox - adds arch and ubuntu containers and sets their aliases
 	
 Performance Kernel
 
@@ -71,7 +72,7 @@ User Applications
 	- Calculator > gnome-calculator 
 	- File sharing > qbittorrent 
 	- For auto mounting external drives > kde partitionmanager
-	- Other apps > fastfetch rsync duf btop htop distrobox
+	- Other apps > fastfetch rsync duf btop htop distroshel
    	
 	Gaming apps
 	- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact
@@ -107,7 +108,7 @@ Recommended manual configurations post reboot
 	- Search for security
 	- Enable the polkit agent
 
-	KDE System Settings Tweaks (to disable search services running in background which is not used by noctalia shell)
+	KDE System Settings Tweaks (Disable search services running in background as not used by noctalia shell)
 	- Go to search and disable File Search
 	- Disable Plasma Search
 	- Turn off History in KRunner
