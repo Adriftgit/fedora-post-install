@@ -68,10 +68,11 @@ error_exit() {
 
 enable_copr_if_needed() {
     local copr_repo="$1"
-    local repo_file_name="_copr:copr.fedorainfracloud.org:${copr_repo/\//:}.repo"
+    local repo_identifier="${copr_repo/\//:}"
 
-    if ls /etc/yum.repos.d/_copr*"${copr_repo//\//-}"*.repo &>/dev/null 2>&1 || \
-       ls /etc/yum.repos.d/"${repo_file_name}" &>/dev/null 2>&1; then
+    # Query DNF directly for active repo or file presence safely
+    if sudo dnf repo list enabled 2>/dev/null | grep -q "${copr_repo/\//-}" || \
+       compgen -G "/etc/yum.repos.d/*${copr_repo/\//-}*.repo" > /dev/null 2>&1; then
         echo "[SKIP] COPR $copr_repo already enabled"
         return 0
     fi
@@ -112,8 +113,8 @@ if [ "$SKIP_RPM" = false ]; then
         echo "Checking RPM Fusion repos..."
         if ! is_installed_dnf "rpmfusion-free-release" || ! is_installed_dnf "rpmfusion-nonfree-release"; then
             echo "Enabling RPM Fusion Free..."
-            sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm || warn "RPM Repo instllation failed"
-            sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm  || warn "RPM Non free Repo instllation failed"
+            sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm || warn "RPM Repo installation failed"
+            sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm  || warn "RPM Non free Repo installation failed"
         else
             echo "[SKIP] RPM Fusion Free and Non‑Free is already installed."
         fi
@@ -135,7 +136,7 @@ if [ "$SKIP_DE" = false ]; then
             echo "Installing..."
             enable_copr_if_needed "lionheartp/Hyprland"
             enable_copr_if_needed "theblackdon/kineticwe"
-            sudo dnf install -y --skip-unavailable kineticwe noctalia-git || warn "Desktop Environment and shell instllation failed"
+            sudo dnf install -y --skip-unavailable kineticwe noctalia-git || warn "Desktop Environment and shell installation failed"
         else
             echo "[SKIP] Kineticwe and Noctalia are already installed."
         fi
@@ -154,7 +155,7 @@ if [ "$SKIP_VIRT" = false ]; then
     if ask_yes_no "Install virtualization environment?"; then
         if ! command -v virt-manager &> /dev/null; then
             echo "Installing virtualization environment..."
-            sudo dnf install -y @virtualization || warn "Virtualization environment instllation failed"
+            sudo dnf install -y @virtualization || warn "Virtualization environment installation failed"
             sudo systemctl enable libvirtd --now
             sudo usermod -aG libvirt "$TARGET_USER"
             echo "Virtualization stack installed - Restart or logout for group membership to take effect."
@@ -176,12 +177,13 @@ if [ "$SKIP_DISTRO" = false ]; then
 
         if ! command -v distrobox &> /dev/null || ! command -v podman &> /dev/null; then
             echo "Installing Podman and Distrobox..."
-            sudo dnf install -y podman distrobox || warn "Distrobox instllation failed"
+            sudo dnf install -y podman distrobox || warn "Distrobox installation failed"
         else
             echo "[SKIP] Podman and Distrobox already installed"
         fi
 
         echo "Configuring Rootless Podman mappings for ${TARGET_USER}..."
+        sudo touch /etc/subuid /etc/subgid
         if ! grep -q "^${TARGET_USER}:" /etc/subuid 2>/dev/null; then
             echo "Assigning subuids for ${TARGET_USER}..."
             sudo usermod --add-subuids 100000-165535 "${TARGET_USER}"
@@ -223,10 +225,10 @@ EOF
         echo "Created manifest at: ${INI_FILE}"
 
         echo "Adding shell aliases..."
-        SHELL_HELPER='# Distrobox Bazzite-style convenience aliases
-alias dbx="distrobox"
-alias dbx-assemble="distrobox assemble create --file ~/.config/distrobox/distrobox.ini"
-alias dbx-list="distrobox list"'
+        SHELL_HELPER="# Distrobox Bazzite-style convenience aliases
+alias dbx=\"distrobox\"
+alias dbx-assemble=\"distrobox assemble create --file ${INI_FILE}\"
+alias dbx-list=\"distrobox list\""
 
         for rc in "${TARGET_HOME}/.bashrc" "${TARGET_HOME}/.zshrc"; do
             if [ -f "$rc" ]; then
@@ -359,7 +361,14 @@ if [ "$SKIP_APPS" = false ]; then
 
         if ask_yes_no "  Install Brave origin (browser)?"; then
             sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo || warn "Brave repo install failed"
-            sudo dnf install -y brave-origin-nightly || warn "Brave install failed"
+            
+            if ! sudo dnf install -y brave-origin-nightly; then
+                warn "Brave install failed."
+                if ask_yes_no "  Would you like to install Firefox instead?"; then
+                    echo "Installing Firefox..."
+                    sudo dnf install -y firefox || warn "Firefox install failed"
+                fi
+            fi
         fi
 
         if ask_yes_no "  Install MPV (media player)?"; then
@@ -370,13 +379,18 @@ if [ "$SKIP_APPS" = false ]; then
             sudo dnf install -y --skip-unavailable loupe || warn "Loupe install failed"
         fi
 
+        FLATPAK_AVAILABLE=false
         if ask_yes_no "  Install Flatpak (and configure Flathub & Flatseal)?"; then
             sudo dnf install flatpak -y || warn "Flatpak install failed"
             flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo || warn "Flathub install failed"
-            sudo -u "$TARGET_USER" flatpak install --user -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
+            flatpak install --user -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
             FLATPAK_AVAILABLE=true
         else
-            echo "  [SKIP] Flatpak setup"
+            if command -v flatpak &>/dev/null; then
+                FLATPAK_AVAILABLE=true
+            else
+                echo "  [SKIP] Flatpak setup"
+            fi
         fi
 
         # --------- Group 2: Utility Apps ---------
