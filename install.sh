@@ -291,7 +291,7 @@ EOF
                 if dnf list --available cachyos-settings &>/dev/null; then
                     sudo dnf swap -y zram-generator-defaults cachyos-settings || warn "swapping cachyos-settings failed"
                     sudo dracut -f || warn "dracut regeneration failed"
-                    sudo dnf install -y scx-scheds-git scx-tools-git || warn "cachyos schedule manager installation failed"
+                    sudo dnf install -y scx-scheds-git scx-tools-git scx-manager || warn "cachyos schedule manager installation failed"
                 else
                     warn "cachyos-settings package not available."
                 fi
