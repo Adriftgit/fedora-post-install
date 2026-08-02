@@ -340,13 +340,6 @@ echo -e "\n▶ Stage 5: Applications"
 if [ "$SKIP_APPS" = false ]; then
     if ask_yes_no "Install Applications?"; then
 
-        # Detect if flatpak is already available (e.g., pre-installed)
-        if command -v flatpak &>/dev/null; then
-            FLATPAK_AVAILABLE=true
-        else
-            FLATPAK_AVAILABLE=false
-        fi
-
         # --------- Group 1: Core Apps ---------
         echo -e "\n  Group 1: Core Apps"
 
@@ -354,15 +347,6 @@ if [ "$SKIP_APPS" = false ]; then
             sudo dnf install -y --skip-unavailable sddm
             sudo systemctl set-default graphical.target
             sudo systemctl enable --force sddm.service || warn "Login manager install failed"
-        fi
-
-        if ask_yes_no "  Install Flatpak (and configure Flathub & Flatseal)?"; then
-            sudo -u "$TARGET_USER" flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-            sudo -u "$TARGET_USER" flatpak update --user -y
-            sudo -u "$TARGET_USER" flatpak install --user -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
-            FLATPAK_AVAILABLE=true
-        else
-            echo "  [SKIP] Flatpak setup"
         fi
 
         if ask_yes_no "  Install Dolphin (file manager)?"; then
@@ -384,6 +368,15 @@ if [ "$SKIP_APPS" = false ]; then
 
         if ask_yes_no "  Install Loupe (image viewer)?"; then
             sudo dnf install -y --skip-unavailable loupe || warn "Loupe install failed"
+        fi
+
+        if ask_yes_no "  Install Flatpak (and configure Flathub & Flatseal)?"; then
+            sudo dnf install flatpak -y || warn "Flatpak install failed"
+            flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo || warn "Flathub install failed"
+            sudo -u "$TARGET_USER" flatpak install --user -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
+            FLATPAK_AVAILABLE=true
+        else
+            echo "  [SKIP] Flatpak setup"
         fi
 
         # --------- Group 2: Utility Apps ---------
