@@ -68,20 +68,8 @@ error_exit() {
 
 enable_copr_if_needed() {
     local copr_repo="$1"
-    local repo_identifier="${copr_repo/\//:}"
-
-    # Query DNF directly for active repo or file presence safely
-    if sudo dnf repo list enabled 2>/dev/null | grep -q "${copr_repo/\//-}" || \
-       compgen -G "/etc/yum.repos.d/*${copr_repo/\//-}*.repo" > /dev/null 2>&1; then
-        echo "[SKIP] COPR $copr_repo already enabled"
-        return 0
-    fi
-
-    echo "Enabling COPR: $copr_repo"
-
-    if ! sudo dnf copr enable -y "$copr_repo"; then
-        warn "Failed to enable COPR: $copr_repo"
-        return 1
+    if ! sudo dnf copr list 2>/dev/null | grep -qF "$copr_repo"; then
+        sudo dnf copr enable -y "$copr_repo" || warn "Failed to enable COPR: $copr_repo"
     fi
 }
 
