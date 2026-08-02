@@ -37,12 +37,12 @@ Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-lo
 	
 Login manager
 
-	Configures system to start with SDDM display manager
+	Configures system to start with SDDM Login manager
 	
 Virtualization
 
 	Installs virtualization packages and grants user permissions to manage virtual machines.
-	Installs distrobox and adds arch and ubuntu containers
+	Installs distrobox - adds arch and ubuntu containers and sets their aliases
 	
 Performance Kernel
 
