@@ -541,9 +541,10 @@ if [ "$SKIP_CODEC" = false ]; then
         echo "[SKIP] Proprietary audio codec Installation"
     fi
 
-    if ask_yes_no "Install proprietary video codecs?"; then
+    if ask_yes_no "Install Mesa video drivers?"; then
         sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
         sudo dnf swap mesa-vulkan-drivers mesa-vulkan-drivers-freeworld || warn "Vulkan swap failed"
+        if ask_yes_no "Install gstreamer video codecs?"; then
         sudo dnf install --setopt="install_weak_deps=False" -y \
             gstreamer1-plugins-good \
             gstreamer1-plugins-bad-free \
@@ -552,8 +553,9 @@ if [ "$SKIP_CODEC" = false ]; then
             gstreamer1-plugins-ugly-free \
             gstreamer1-plugin-openh264 \
             gstreamer1-plugin-libav \
-            --exclude=PackageKit-gstreamer-plugin || warn "gstreamer plugin swap failed"
-    else
+            --exclude=PackageKit-gstreamer-plugin || warn "gstreamer plugin install failed"
+            fi
+        else
         echo "[SKIP] Proprietary video codecs Installation"
     fi
 else
