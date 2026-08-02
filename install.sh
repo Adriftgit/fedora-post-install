@@ -542,9 +542,8 @@ if [ "$SKIP_CODEC" = false ]; then
     fi
 
     if ask_yes_no "Install proprietary video codecs?"; then
-        sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld --allowerasing -y || warn "Mesa swap failed"
-        sudo dnf swap mesa-vulkan-drivers mesa-vulkan-drivers-freeworld --allowerasing -y || warn "Vulkan swap failed"
-        sudo dnf install libavcodec-freeworld --allowerasing -y || warn "proprietary libva swap failed"
+        sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
+        sudo dnf swap mesa-vulkan-drivers mesa-vulkan-drivers-freeworld || warn "Vulkan swap failed"
         sudo dnf install --setopt="install_weak_deps=False" -y \
             gstreamer1-plugins-good \
             gstreamer1-plugins-bad-free \
