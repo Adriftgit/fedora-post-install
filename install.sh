@@ -21,6 +21,7 @@ if [ -z "$TARGET_HOME" ] || [ ! -d "$TARGET_HOME" ]; then
 fi
 
 # ── Parse command line arguments ──────────────────────────────────────────
+SKIP_UPDATE=false
 SKIP_DNF=false
 SKIP_RPM=false
 SKIP_DE=false
@@ -36,6 +37,7 @@ SKIP_CODEC=false
 
 for arg in "$@"; do
     case "$arg" in
+        --skip-update)   SKIP_UPDATE=true ;;
         --skip-dnf)   SKIP_DNF=true ;;
         --skip-rpm)   SKIP_RPM=true ;;
         --skip-de)    SKIP_DE=true ;;
@@ -92,6 +94,17 @@ echo "────────────────────────�
 echo " Fedora Post-Install Setup"
 echo "──────────────────────────────────────────"
 
+# Perform full system update before installing new software
+echo -e "\n▶ System update Recommended before installing new software"
+if [ "$SKIP_UPDATE" = false ]; then
+    if ask_yes_no "Perform full System update?"; then
+        sudo dnf upgrade --refresh -y || warn "System update failed"
+        sudo dnf install -y dnf-plugin-system-upgrade || warn "System update plugin install failed"
+    else
+        echo "[SKIP] System update skipped"
+    fi
+fi
+    
 # =========================================================================
 # STAGE 1 – RPM Fusion Repos
 # =========================================================================
@@ -453,7 +466,7 @@ if [ "$SKIP_APPS" = false ]; then
             fi
 
             if ask_yes_no "  Install Bazaar (app store)?"; then
-                sudo -u "$TARGET_USER" flatpak install --user -y flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
+                sudo flatpak install flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
             fi
 
             if ask_yes_no "  Install Kdenlive (Video Editor)?"; then
@@ -682,12 +695,14 @@ fi
 # =========================================================================
 # STAGE 8 – Full System Update
 # =========================================================================
-echo -e "\n▶ Stage 8: System Update"
+echo -e "\n▶ Stage 8: Post install System Update"
 if [ "$SKIP_UPDATE" = false ]; then
-    if ask_yes_no "Perform full system update (updates dnf and flatpak packages)?"; then
+    if ask_yes_no "Perform full system update (updates and cleans dnf and flatpak packages)?"; then
         echo "Full system update..."
         sudo dnf upgrade --refresh -y || warn "System update failed"
-        sudo -u "$TARGET_USER" flatpak update --user -y || warn "flatpak update failed"
+        sudo dnf install dnf-plugin-system-upgrade || warn "System update failed"
+        sudo flatpak update -y || warn "flatpak update failed"
+        sudo dnf clean all -y || warn "dnf cleanup failed"
     else
         echo "[SKIP] System update"
     fi
