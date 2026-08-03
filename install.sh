@@ -31,7 +31,6 @@ SKIP_CACHY=false
 SKIP_APPS=false
 SKIP_SHADER=false
 SKIP_SHELL=false
-SKIP_UPDATE=false
 SKIP_WAIT=false
 SKIP_CODEC=false
 
@@ -47,7 +46,6 @@ for arg in "$@"; do
         --skip-apps)  SKIP_APPS=true ;;
         --skip-shader) SKIP_SHADER=true ;;
         --skip-shell) SKIP_SHELL=true ;;
-        --skip-update) SKIP_UPDATE=true ;;
         --skip-wait)  SKIP_WAIT=true ;;
         --skip-codec) SKIP_CODEC=true ;;
         *) echo "Unknown option: $arg" >&2; exit 1 ;;
@@ -403,35 +401,35 @@ if [ "$SKIP_APPS" = false ]; then
             echo "  [SKIP] Flatpak apps skipped because Flatpak is not available."
         else
             if ask_yes_no "  Install Zed editor (text and code editor)?"; then
-                sudo -u "$TARGET_USER" flatpak install --user -y flathub dev.zed.Zed || warn "Zed install failed"
+                sudo flatpak install -y flathub dev.zed.Zed || warn "Zed install failed"
             fi
 
             if ask_yes_no "  Install Bazaar (app store)?"; then
-                sudo flatpak install flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
+                sudo flatpak install -y flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
             fi
 
             if ask_yes_no "  Install Kdenlive (Video Editor)?"; then
-                sudo -u "$TARGET_USER" flatpak install --user -y flathub org.kde.kdenlive || warn "kdenlive install failed"
+                sudo flatpak install -y flathub org.kde.kdenlive || warn "kdenlive install failed"
             fi
 
             if ask_yes_no "  Install Krita (Image Editor)?"; then
-                sudo -u "$TARGET_USER" flatpak install --user -y flathub org.kde.krita || warn "Krita install failed"
+                sudo flatpak install -y flathub org.kde.krita || warn "Krita install failed"
             fi
 
             if ask_yes_no "  Install Audacity (Audio editor)?"; then
-                sudo -u "$TARGET_USER" flatpak install --user -y flathub org.audacityteam.Audacity || warn "audacity install failed"
+                sudo flatpak install -y flathub org.audacityteam.Audacity || warn "audacity install failed"
             fi
 
             if ask_yes_no "  Install DistroShelf (Distrobox gui)?"; then
-                sudo -u "$TARGET_USER" flatpak install --user -y flathub com.ranfdev.DistroShelf || warn "DistroShelf install failed"
+                sudo flatpak install -y flathub com.ranfdev.DistroShelf || warn "DistroShelf install failed"
             fi
 
             if ask_yes_no "  Install ProtonPlus (To check and install proton versions)?"; then
-                sudo -u "$TARGET_USER" flatpak install --user -y flathub com.vysp3r.ProtonPlus || warn "ProtonPlus install failed"
+                sudo flatpak install -y flathub com.vysp3r.ProtonPlus || warn "ProtonPlus install failed"
             fi
 
             if ask_yes_no "  Install ProtonUp-Qt (ProtonPlus alternative)?"; then
-                sudo -u "$TARGET_USER" flatpak install --user -y flathub net.davidotek.pupgui2 || warn "ProtonUp-Qt install failed"
+                sudo flatpak install -y flathub net.davidotek.pupgui2 || warn "ProtonUp-Qt install failed"
             fi
         fi
 
@@ -643,7 +641,7 @@ echo "==================================================="
 echo -e "\n▶ Post-install DNF cleanup"
 if ask_yes_no "Clean up leftover packages and DNF cache?"; then
     echo "Removing orphan packages..."
-    sudo dnf autoremove -y || warn "dnf autoremove failed
+    sudo dnf autoremove -y || warn "dnf autoremove failed"
     sudo dnf clean all || warn "dnf clean failed"
 else
     echo "[SKIP] DNF cleanup"
