@@ -370,8 +370,8 @@ if [ "$SKIP_APPS" = false ]; then
         FLATPAK_AVAILABLE=false
         if ask_yes_no "  Install Flatpak (and configure Flathub & Flatseal)?"; then
             sudo dnf install flatpak -y || warn "Flatpak install failed"
-            flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo || warn "Flathub install failed"
-            flatpak install --user -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
+            sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || warn "Flathub install failed"
+            flatpak install flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
             FLATPAK_AVAILABLE=true
         else
             if command -v flatpak &>/dev/null; then
