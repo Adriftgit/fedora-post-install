@@ -94,21 +94,24 @@ echo "────────────────────────�
 echo " Fedora Post-Install Setup"
 echo "──────────────────────────────────────────"
 
-# Perform full system update before installing new software
-echo -e "\n▶ System update Recommended before installing new software"
+# =========================================================================
+# STAGE 1 – Full System Update
+# =========================================================================
+echo -e "\n▶ Stage 1: System update - Recommended before installing new softwares"
 if [ "$SKIP_UPDATE" = false ]; then
     if ask_yes_no "Perform full System update?"; then
         sudo dnf upgrade --refresh -y || warn "System update failed"
-        sudo dnf install -y dnf-plugin-system-upgrade || warn "System update plugin install failed"
-    else
+        sudo dnf install dnf-plugin-system-upgrade || warn "System update failed"
+        sudo flatpak update -y || warn "flatpak update failed"
+    else    
         echo "[SKIP] System update skipped"
     fi
 fi
     
 # =========================================================================
-# STAGE 1 – RPM Fusion Repos
+# STAGE 2 – RPM Fusion Repos
 # =========================================================================
-echo -e "\n▶ Stage 1: RPM Fusion Repos"
+echo -e "\n▶ Stage 2: RPM Fusion Repos"
 if [ "$SKIP_RPM" = false ]; then
     if ask_yes_no "Enable RPM Fusion (free & non‑free) repositories?"; then
         echo "Checking RPM Fusion repos..."
@@ -127,9 +130,9 @@ else
 fi
 
 # =========================================================================
-# STAGE 2 – Desktop Environment and shell
+# STAGE 3 – Desktop Environment and shell
 # =========================================================================
-echo -e "\n▶ Stage 2: Desktop Environment Setup"
+echo -e "\n▶ Stage 3: Desktop Environment Setup"
 if [ "$SKIP_DE" = false ]; then
     if ask_yes_no "Set up Desktop Environment (Noctalia & kineticwe)?"; then
         echo "Checking Kineticwe and Noctalia..."
@@ -149,9 +152,9 @@ else
 fi
 
 # =========================================================================
-# STAGE 3 – Virtualization
+# STAGE 4 – Virtualization
 # =========================================================================
-echo -e "\n▶ Stage 3: Virtualization"
+echo -e "\n▶ Stage 4: Virtualization"
 if [ "$SKIP_VIRT" = false ]; then
     if ask_yes_no "Install virtualization environment?"; then
         if ! command -v virt-manager &> /dev/null; then
@@ -173,74 +176,12 @@ fi
 echo -e "\n▶ Stage 3.5: Distrobox Setup"
 if [ "$SKIP_DISTRO" = false ]; then
     if ask_yes_no "Install Distrobox stack?"; then
-        CONFIG_DIR="${TARGET_HOME}/.config/distrobox"
-        INI_FILE="${CONFIG_DIR}/distrobox.ini"
-
-        if ! command -v distrobox &> /dev/null || ! command -v podman &> /dev/null; then
+        if ! command -v distrobox >/dev/null 2>&1 || ! command -v podman >/dev/null 2>&1; then
             echo "Installing Podman and Distrobox..."
             sudo dnf install -y podman distrobox || warn "Distrobox installation failed"
         else
             echo "[SKIP] Podman and Distrobox already installed"
         fi
-
-        echo "Configuring Rootless Podman mappings for ${TARGET_USER}..."
-        sudo touch /etc/subuid /etc/subgid
-        if ! grep -q "^${TARGET_USER}:" /etc/subuid 2>/dev/null; then
-            echo "Assigning subuids for ${TARGET_USER}..."
-            sudo usermod --add-subuids 100000-165535 "${TARGET_USER}"
-        fi
-
-        if ! grep -q "^${TARGET_USER}:" /etc/subgid 2>/dev/null; then
-            echo "Assigning subgids for ${TARGET_USER}..."
-            sudo usermod --add-subgids 100000-165535 "${TARGET_USER}"
-        fi
-
-        sudo -u "$TARGET_USER" podman system migrate 2>/dev/null || true
-
-        echo "Creating declarative distrobox.ini manifest..."
-        sudo -u "$TARGET_USER" mkdir -p "${CONFIG_DIR}"
-        sudo -u "$TARGET_USER" tee "${INI_FILE}" > /dev/null << 'EOF'
-
-# Arch Linux container (pre-configured with dev tools)
-[arch]
-image=ghcr.io/ublue-os/arch-toolbox:latest
-additional_packages="git base-devel neofetch htop curl wget"
-init=false
-nvidia=false
-pull=true
-root=false
-replace=false
-start_now=false
-
-# Ubuntu container
-[ubuntu]
-image=ghcr.io/ublue-os/ubuntu-toolbox:latest
-additional_packages="git build-essential curl wget"
-init=false
-nvidia=false
-pull=true
-root=false
-replace=false
-start_now=false
-EOF
-        echo "Created manifest at: ${INI_FILE}"
-
-        echo "Adding shell aliases..."
-        SHELL_HELPER="# Distrobox Bazzite-style convenience aliases
-alias dbx=\"distrobox\"
-alias dbx-assemble=\"distrobox assemble create --file ${INI_FILE}\"
-alias dbx-list=\"distrobox list\""
-
-        for rc in "${TARGET_HOME}/.bashrc" "${TARGET_HOME}/.zshrc"; do
-            if [ -f "$rc" ]; then
-                if ! sudo -u "$TARGET_USER" grep -q "dbx-assemble" "$rc" 2>/dev/null; then
-                    sudo -u "$TARGET_USER" tee -a "$rc" > /dev/null <<< "$SHELL_HELPER"
-                    echo "Added shell aliases to $rc"
-                else
-                    echo "[SKIP] Shell aliases already present in $rc"
-                fi
-            fi
-        done
     else
         echo "[SKIP] Distrobox stack"
     fi
@@ -249,9 +190,9 @@ else
 fi
 
 # =========================================================================
-# STAGE 4 – Performance Optimizations
+# STAGE 5 – Performance Optimizations
 # =========================================================================
-echo -e "\n▶ Stage 4: Performance Optimizations"
+echo -e "\n▶ Stage 5: Performance Optimizations"
 
 if [ "$SKIP_DNF" = false ]; then
     if ask_yes_no "Apply DNF optimisations?"; then
@@ -337,9 +278,9 @@ else
 fi
 
 # =========================================================================
-# STAGE 5 – Applications
+# STAGE 6 – Applications
 # =========================================================================
-echo -e "\n▶ Stage 5: Applications"
+echo -e "\n▶ Stage 6: Applications"
 if [ "$SKIP_APPS" = false ]; then
     if ask_yes_no "Install Applications?"; then
 
@@ -544,9 +485,9 @@ else
 fi
 
 # =========================================================================
-# STAGE 6 – Video and Audio Codecs Setup
+# STAGE 7 – Video and Audio Codecs Setup
 # =========================================================================
-echo -e "\n▶ Stage 6: Video and Audio Codecs"
+echo -e "\n▶ Stage 7: Video and Audio Codecs"
 if [ "$SKIP_CODEC" = false ]; then
     if ask_yes_no "Install proprietary audio codecs?"; then
         sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y || warn "proprietary audio codecs swap failed"
@@ -576,9 +517,9 @@ else
 fi
 
 # =========================================================================
-# STAGE 7 – TUI Shell Setup (zsh, fish, starship)
+# STAGE 8 – Terminal Setup (zsh, fish, starship)
 # =========================================================================
-echo -e "\n▶ Stage 7: TUI Shell Setup"
+echo -e "\n▶ Stage 8: Terminal Setup"
 if [ "$SKIP_SHELL" = false ]; then
     zsh_installed=false
     fish_installed=false
@@ -693,29 +634,21 @@ else
 fi
 
 # =========================================================================
-# STAGE 8 – Full System Update
-# =========================================================================
-echo -e "\n▶ Stage 8: Post install System Update"
-if [ "$SKIP_UPDATE" = false ]; then
-    if ask_yes_no "Perform full system update (updates and cleans dnf and flatpak packages)?"; then
-        echo "Full system update..."
-        sudo dnf upgrade --refresh -y || warn "System update failed"
-        sudo dnf install dnf-plugin-system-upgrade || warn "System update failed"
-        sudo flatpak update -y || warn "flatpak update failed"
-        sudo dnf clean all -y || warn "dnf cleanup failed"
-    else
-        echo "[SKIP] System update"
-    fi
-else
-    echo "[SKIP] System update (--skip-update flag)"
-fi
-
-# =========================================================================
-# Final Messages & Summary
+# Final Messages & DNF cleanup
 # =========================================================================
 echo -e "\n==================================================="
 echo " INSTALLATION COMPLETE "
 echo "==================================================="
+
+echo -e "\n▶ Post-install DNF cleanup"
+if ask_yes_no "Clean up leftover packages and DNF cache?"; then
+    echo "Removing orphan packages..."
+    sudo dnf autoremove -y || warn "dnf autoremove failed
+    sudo dnf clean all || warn "dnf clean failed"
+else
+    echo "[SKIP] DNF cleanup"
+fi
+
 echo ""
 echo "MANUAL CONFIGURATIONS REQUIRED"
 echo "---------------------------------------------------"
