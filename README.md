@@ -17,7 +17,7 @@ Recommendation
 Run using
 
 	sudo dnf install -y git
-	git clone https://github.com/Adriftgit/Fedora-post-install/
+	git clone https://github.com/Adriftgit/fedora-post-install
 	cd Fedora-post-install
 	chmod +x ./install.sh
 	./install.sh
