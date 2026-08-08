@@ -152,13 +152,17 @@ fi
 # =========================================================================
 # STAGE 4 – Virtualization
 # =========================================================================
-echo -e "\n▶ Stage 4: Virtualization"
 if [ "$SKIP_VIRT" = false ]; then
     if ask_yes_no "Install virtualization environment?"; then
         if ! command -v virt-manager &> /dev/null; then
             echo "Installing virtualization environment..."
-            sudo dnf install -y @virtualization || warn "Virtualization environment installation failed"
-            sudo systemctl enable libvirtd --now
+            sudo dnf install -y @virtualization || { echo "Virtualization environment installation failed"; exit 1; }
+
+            for SOCK in virtqemud.socket virtnetworkd.socket virtstoraged.socket \
+                        virtnodedevd.socket virtsecretd.socket \
+                        virtnwfilterd.socket virtinterfaced.socket; do
+              sudo systemctl enable --now "$SOCK"
+            done
             sudo usermod -aG libvirt "$TARGET_USER"
             echo "Virtualization stack installed - Restart or logout for group membership to take effect."
         else
@@ -170,6 +174,7 @@ if [ "$SKIP_VIRT" = false ]; then
 else
     echo "[SKIP] Virtualization (--skip-virt flag)"
 fi
+
 
 echo -e "\n▶ Stage 3.5: Distrobox Setup"
 if [ "$SKIP_DISTRO" = false ]; then
@@ -242,7 +247,7 @@ EOF
 
                 if dnf list --available cachyos-settings &>/dev/null; then
                     sudo dnf swap -y zram-generator-defaults cachyos-settings || warn "swapping cachyos-settings failed"
-                    sudo dracut -f || warn "dracut regeneration failed"
+                    sudo dracut --regenerate-all -f || warn "dracut regeneration failed"
                     sudo dnf install -y scx-scheds-git scx-tools-git scx-manager || warn "cachyos schedule manager installation failed"
                 else
                     warn "cachyos-settings package not available."
@@ -323,7 +328,7 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install Flatpak (and configure Flathub & Flatseal)?"; then
             sudo dnf install flatpak -y || warn "Flatpak install failed"
             sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || warn "Flathub install failed"
-            flatpak install flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
+            flatpak install -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
             FLATPAK_AVAILABLE=true
         else
             if command -v flatpak &>/dev/null; then
@@ -519,12 +524,7 @@ fi
 # =========================================================================
 echo -e "\n▶ Stage 8: Terminal Setup"
 if [ "$SKIP_SHELL" = false ]; then
-    zsh_installed=false
-    fish_installed=false
     SHELL_CHOICE="${SHELL_CHOICE:-skip}"
-
-    command -v zsh &>/dev/null && zsh_installed=true
-    command -v fish &>/dev/null && fish_installed=true
 
     if [ "$SHELL_CHOICE" = "skip" ]; then
         if ask_yes_no "Would you like to install and set up a custom shell (zsh or fish)?"; then
@@ -548,7 +548,6 @@ if [ "$SKIP_SHELL" = false ]; then
             sudo dnf install -y zsh || warn "zsh install failed"
         fi
         if command -v zsh &>/dev/null; then
-            zsh_installed=true
             if ask_yes_no "Change default shell to zsh?"; then
                 sudo chsh -s "/usr/bin/zsh" "$TARGET_USER" || warn "Could not change shell to zsh"
             else
@@ -563,7 +562,6 @@ if [ "$SKIP_SHELL" = false ]; then
             sudo dnf install -y fish || warn "fish install failed"
         fi
         if command -v fish &>/dev/null; then
-            fish_installed=true
             if ask_yes_no "Change default shell to fish?"; then
                 sudo chsh -s "/usr/bin/fish" "$TARGET_USER" || warn "Could not change shell to fish"
             else
@@ -588,7 +586,7 @@ if [ "$SKIP_SHELL" = false ]; then
             sudo -u "$TARGET_USER" starship preset gruvbox-rainbow -o "$TARGET_HOME/.config/starship.toml" || \
                 warn "Could not apply Starship preset"
 
-            if [ "$fish_installed" = true ]; then
+            if [ "${SHELL_CHOICE,,}" = "fish" ]; then
                 echo "Configuring Starship for fish..."
                 fish_rc="$TARGET_HOME/.config/fish/config.fish"
                 sudo -u "$TARGET_USER" mkdir -p "$(dirname "$fish_rc")"
@@ -600,7 +598,7 @@ if [ "$SKIP_SHELL" = false ]; then
                 else
                     echo "[SKIP] Starship already configured in fish"
                 fi
-            elif [ "$zsh_installed" = true ]; then
+            elif [ "${SHELL_CHOICE,,}" = "zsh" ]; then
                 echo "Configuring Starship for zsh..."
                 shell_rc="$TARGET_HOME/.zshrc"
                 sudo -u "$TARGET_USER" touch "$shell_rc"
@@ -612,6 +610,7 @@ if [ "$SKIP_SHELL" = false ]; then
                     echo "[SKIP] Starship already configured in zsh"
                 fi
             else
+                # Starship installs to Bash if the user didn't explicitly choose Fish or Zsh
                 echo "Configuring Starship for bash..."
                 shell_rc="$TARGET_HOME/.bashrc"
                 sudo -u "$TARGET_USER" touch "$shell_rc"
