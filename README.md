@@ -66,6 +66,7 @@ User Applications
 	- Browser > Brave-origin-nightly 
 	- File manager > Dolphin 
 	- Terminal > Kitty
+	- Pikabackup > For creating user file backups
 
 	Utility apps
 	- Media player > loupe 
