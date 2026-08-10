@@ -412,6 +412,10 @@ if [ "$SKIP_APPS" = false ]; then
             if ask_yes_no "  Install Bazaar (app store)?"; then
                 sudo flatpak install -y flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
             fi
+            
+            if ask_yes_no "  Install Pikabackup (For user files backup)?"; then
+                sudo flatpak install -y flathub org.gnome.World.PikaBackup || warn "PikaBackup install failed"
+            fi
 
             if ask_yes_no "  Install Kdenlive (Video Editor)?"; then
                 sudo flatpak install -y flathub org.kde.kdenlive || warn "kdenlive install failed"
