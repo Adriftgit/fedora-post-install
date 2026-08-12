@@ -100,7 +100,7 @@ if [ "$SKIP_UPDATE" = false ]; then
     if ask_yes_no "Perform full System update?"; then
         sudo dnf upgrade --refresh -y || warn "System update failed"
         sudo dnf install dnf-plugin-system-upgrade || warn "System update failed"
-        sudo flatpak update -y || warn "flatpak update failed"
+        sudo flatpak update -y || warn "flatpak update failed (can be due to flatpak not installed yet)"
     else    
         echo "[SKIP] System update skipped"
     fi
@@ -175,8 +175,7 @@ else
     echo "[SKIP] Virtualization (--skip-virt flag)"
 fi
 
-
-echo -e "\n▶ Stage 3.5: Distrobox Setup"
+echo -e "\n▶ Stage 4.5: Distrobox Setup"
 if [ "$SKIP_DISTRO" = false ]; then
     if ask_yes_no "Install Distrobox stack?"; then
         if ! command -v distrobox >/dev/null 2>&1 || ! command -v podman >/dev/null 2>&1; then
@@ -193,9 +192,9 @@ else
 fi
 
 # =========================================================================
-# STAGE 5 – Performance Optimizations
+# STAGE 5 – Performance and Optimizations
 # =========================================================================
-echo -e "\n▶ Stage 5: Performance Optimizations"
+echo -e "\n▶ Stage 5: Performance and Optimizations"
 
 if [ "$SKIP_DNF" = false ]; then
     if ask_yes_no "Apply DNF optimisations?"; then
@@ -226,7 +225,7 @@ if [ "$SKIP_CACHY" = false ]; then
     if rpm -q kernel-cachyos &>/dev/null; then
         echo "[INFO] CachyOS Kernel is already installed. Skipping..."
     else
-        if ask_yes_no "Install CachyOS Kernel and Performance Schedulers?"; then
+        if ask_yes_no "Install CachyOS Kernel and Performance Schedulers (this can take few minutes)?"; then
             enable_copr_if_needed "bieszczaders/kernel-cachyos"
             enable_copr_if_needed "bieszczaders/kernel-cachyos-addons"
 
@@ -319,7 +318,10 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install MPV (media player)?"; then
             sudo dnf install -y --skip-unavailable mpv || warn "MPV install failed"
         fi
-
+        
+        if ask_yes_no "  Install Timeshift (System Restore tool)?"; then
+            sudo dnf install -y --skip-unavailable timeshift || warn "Timeshift install failed"
+        fi
         if ask_yes_no "  Install Loupe (image viewer)?"; then
             sudo dnf install -y --skip-unavailable loupe || warn "Loupe install failed"
         fi
@@ -328,7 +330,7 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install Flatpak (and configure Flathub & Flatseal)?"; then
             sudo dnf install flatpak -y || warn "Flatpak install failed"
             sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || warn "Flathub install failed"
-            flatpak install -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
+            sudo flatpak install -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
             FLATPAK_AVAILABLE=true
         else
             if command -v flatpak &>/dev/null; then
@@ -372,9 +374,9 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install htop (TUI process viewer)?"; then
             sudo dnf install -y --skip-unavailable htop || warn "htop install failed"
         fi
-
-        if ask_yes_no "  Install KWallet Manager (To disable kwallet service if needed)?"; then
-            sudo dnf install -y --skip-unavailable kwalletmanager5 || warn "KWallet Manager install failed"
+        
+        if ask_yes_no "  Install pam-kwallet (Auto-unlock KDE Wallet on login)?"; then
+            sudo dnf install -y pam-kwallet || warn "pam-kwallet install failed"
         fi
 
         # --------- Group 3: Gaming Apps ---------
@@ -440,11 +442,19 @@ if [ "$SKIP_APPS" = false ]; then
             if ask_yes_no "  Install ProtonUp-Qt (ProtonPlus alternative)?"; then
                 sudo flatpak install -y flathub net.davidotek.pupgui2 || warn "ProtonUp-Qt install failed"
             fi
+            
+            if ask_yes_no "  Install Sunshine (Game streaming backend)?"; then
+                sudo flatpak install -y flathub dev.lizardbyte.app.Sunshine || warn "Sunshine install failed"
+            fi
+
+            if ask_yes_no "  Install Moonlight (Game streaming client)?"; then
+                sudo flatpak install -y flathub com.moonlight_stream.Moonlight || warn "Moonlight install failed"
+            fi
         fi
 
         # --------- Group 5: Apps Requiring custom Repos ---------
         echo -e "\n  Group 5: Apps requiring custom repos"
-        if ask_yes_no "  Install and set up yazi (TUI file manager)?"; then
+        if ask_yes_no "  Install yazi (TUI file manager)?"; then
             if ! is_installed_dnf "yazi"; then
                 if enable_copr_if_needed "lihaohong/yazi"; then
                     sudo dnf install -y yazi || warn "yazi install failed"
@@ -454,7 +464,7 @@ if [ "$SKIP_APPS" = false ]; then
             fi
         fi
 
-        if ask_yes_no "  Install and set up faugus-launcher (Lightweight game launcher)?"; then
+        if ask_yes_no "  Install faugus-launcher (Lightweight game launcher)?"; then
             if ! is_installed_dnf "faugus-launcher"; then
                 if enable_copr_if_needed "faugus/faugus-launcher"; then
                     sudo dnf install -y faugus-launcher || warn "faugus-launcher install failed"
@@ -464,6 +474,16 @@ if [ "$SKIP_APPS" = false ]; then
             fi
         fi
 
+        if ask_yes_no "  Install Helium Browser (Lightweight firefox alternative)?"; then
+            if ! is_installed_dnf "helium-bin"; then
+                if enable_copr_if_needed "imput/helium"; then
+                    sudo dnf install -y helium-bin || warn "Helium install failed"
+                fi
+            else
+                echo "  [SKIP] Helium Browser (already installed)"
+            fi
+        fi
+        
         if ask_yes_no "  Install lgl-system-loadout (Alternate GUI app for setting up Fedora)?"; then
             if ! is_installed_dnf "lgl-system-loadout"; then
                 if enable_copr_if_needed "linuxgamerlife/lgl-system-loadout"; then
@@ -477,7 +497,8 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install and set up LACT (GPU overclocking tool)?"; then
             if ! is_installed_dnf "lact"; then
                 if enable_copr_if_needed "ilyaz/LACT"; then
-                    sudo dnf install -y lact || warn "lact install failed"
+                    sudo dnf install -y lact
+                    sudo systemctl enable --now lactd || warn "lact install failed"
                 fi
             else
                 echo "  [SKIP] lact (already installed)"
@@ -661,6 +682,10 @@ echo " 3. Update grub:"
 echo "    - sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
 echo " 4. In KDE System Settings go to search section:"
 echo "    - Disable File Search, Plasma Search, and KRunner History."
+echo " 5. KDE Wallet Setup (for pam-kwallet auto-unlock):"
+echo "    - When an app asks to create a wallet"
+echo "    - Choose standard (Blowfish) encryption"
+echo "    - And use your exact login password."
 echo "==================================================="
 
 echo -e "\nSystem changes require a reboot to take effect."
