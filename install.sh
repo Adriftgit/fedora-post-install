@@ -306,8 +306,7 @@ if [ "$SKIP_APPS" = false ]; then
 
         if ask_yes_no "  Install Brave origin (browser)?"; then
             sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo || warn "Brave repo install failed"
-            if sudo dnf install -y --skip-unavailable brave-origin-nightly || warn "Brave-origin install failed"   
-            fi
+            sudo dnf install -y --skip-unavailable brave-origin-nightly || warn "Brave-origin install failed"
         fi
 
         if ask_yes_no "  Install MPV (media player)?"; then
