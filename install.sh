@@ -140,7 +140,7 @@ if [ "$SKIP_DE" = false ]; then
             echo "Installing..."
             enable_copr_if_needed "lionheartp/Hyprland"
             enable_copr_if_needed "theblackdon/kineticwe"
-            sudo dnf install -y --skip-unavailable kineticwe noctalia-git || warn "Desktop Environment and shell installation failed"
+            sudo dnf install -y --skip-unavailable kineticwe noctalia || warn "Desktop Environment and shell installation failed"
         else
             echo "[SKIP] Kineticwe and Noctalia are already installed."
         fi
