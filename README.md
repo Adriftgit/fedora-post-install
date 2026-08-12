@@ -8,7 +8,7 @@ Recommended to install at least Desktop Environment and Desktop Shell
 
 	Learning Project: Expect heavy use of AI assistance in crafting and optimizing this script.
 
-	Attribution: This project aggregates and compiles packages and repositories created by other developers. 
+	Attribution: This script aggregates and compiles packages and repositories created by other developers. 
 	All credit and intellectual property rights (if any) belongs entirely to their respective authors.
 
 **Recommendation:** While all options are modular, recommended to install at least Desktop Environment and Shell.
