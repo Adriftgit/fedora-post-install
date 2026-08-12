@@ -99,7 +99,6 @@ echo -e "\n▶ Stage 1: System update - Recommended before installing new softwa
 if [ "$SKIP_UPDATE" = false ]; then
     if ask_yes_no "Perform full System update?"; then
         sudo dnf upgrade --refresh -y || warn "System update failed"
-        sudo dnf install dnf-plugin-system-upgrade || warn "System update failed"
         if command -v flatpak &>/dev/null; then
             sudo flatpak update -y || warn "Flatpak update failed"
         fi
