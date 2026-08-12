@@ -100,7 +100,9 @@ if [ "$SKIP_UPDATE" = false ]; then
     if ask_yes_no "Perform full System update?"; then
         sudo dnf upgrade --refresh -y || warn "System update failed"
         sudo dnf install dnf-plugin-system-upgrade || warn "System update failed"
-        sudo flatpak update -y || warn "flatpak update failed (can be due to flatpak not installed yet)"
+        if command -v flatpak &>/dev/null; then
+            sudo flatpak update -y || warn "Flatpak update failed"
+        fi
     else    
         echo "[SKIP] System update skipped"
     fi
@@ -305,13 +307,7 @@ if [ "$SKIP_APPS" = false ]; then
 
         if ask_yes_no "  Install Brave origin (browser)?"; then
             sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo || warn "Brave repo install failed"
-            
-            if ! sudo dnf install -y brave-origin-nightly; then
-                warn "Brave install failed."
-                if ask_yes_no "  Would you like to install Firefox instead?"; then
-                    echo "Installing Firefox..."
-                    sudo dnf install -y firefox || warn "Firefox install failed"
-                fi
+            if ! sudo dnf install -y --skip-unavailable brave-origin-nightly; || warn "Brave-origin install failed"   
             fi
         fi
 
@@ -322,8 +318,13 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install Timeshift (System Restore tool)?"; then
             sudo dnf install -y --skip-unavailable timeshift || warn "Timeshift install failed"
         fi
+        
         if ask_yes_no "  Install Loupe (image viewer)?"; then
             sudo dnf install -y --skip-unavailable loupe || warn "Loupe install failed"
+        fi
+
+        if ask_yes_no "  Install Spectacle (Screen capture tool)?"; then
+            sudo dnf install -y --skip-unavailable spectacle || warn "Spectacle install failed"
         fi
 
         FLATPAK_AVAILABLE=false
@@ -376,30 +377,30 @@ if [ "$SKIP_APPS" = false ]; then
         fi
         
         if ask_yes_no "  Install pam-kwallet (Auto-unlock KDE Wallet on login)?"; then
-            sudo dnf install -y pam-kwallet || warn "pam-kwallet install failed"
+            sudo dnf install -y --skip-unavailable pam-kwallet || warn "pam-kwallet install failed"
         fi
 
         # --------- Group 3: Gaming Apps ---------
         echo -e "\n  Group 3: Gaming Apps"
 
         if ask_yes_no "  Install Steam?"; then
-            sudo dnf install -y steam || warn "Steam install failed"
+            sudo dnf install -y --skip-unavailable steam || warn "Steam install failed"
         fi
 
         if ask_yes_no "  Install MangoHud (In game overlay for monitoring GPU/CPU usage,FPS)?"; then
-            sudo dnf install -y mangohud || warn "MangoHud install failed"
+            sudo dnf install -y --skip-unavailable mangohud || warn "MangoHud install failed"
         fi
 
         if ask_yes_no "  Install Gamescope (isolated compositor for HDR,FSR etc.)?"; then
-            sudo dnf install -y gamescope || warn "Gamescope install failed"
+            sudo dnf install -y --skip-unavailable gamescope || warn "Gamescope install failed"
         fi
 
         if ask_yes_no "  Install Protontricks (To install windows tools required for games, mods)?"; then
-            sudo dnf install -y protontricks || warn "Protontricks install failed"
+            sudo dnf install -y --skip-unavailable protontricks || warn "Protontricks install failed"
         fi
 
         if ask_yes_no "  Install Goverlay (GUI tool for mangohud)?"; then
-            sudo dnf install -y goverlay || warn "GOverlay install failed"
+            sudo dnf install -y --skip-unavailable goverlay || warn "GOverlay install failed"
         fi
 
         # --------- Group 4: Flatpak Apps ---------
@@ -526,6 +527,7 @@ if [ "$SKIP_CODEC" = false ]; then
     if ask_yes_no "Install Mesa video drivers?"; then
         sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
         sudo dnf swap mesa-vulkan-drivers mesa-vulkan-drivers-freeworld || warn "Vulkan swap failed"
+        
         if ask_yes_no "Install gstreamer video codecs?"; then
         sudo dnf install --setopt="install_weak_deps=False" -y \
             gstreamer1-plugins-good \
