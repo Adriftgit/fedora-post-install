@@ -299,7 +299,11 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install Dolphin (file manager)?"; then
             sudo dnf install -y --skip-unavailable dolphin || warn "Dolphin install failed"
         fi
-
+        
+        if ask_yes_no "  Install Ark (File compression tool)?"; then
+            sudo dnf install -y --skip-unavailable ark || warn "Ark install failed"
+        fi
+        
         if ask_yes_no "  Install Kitty (terminal)?"; then
             sudo dnf install -y --skip-unavailable kitty || warn "Kitty install failed"
         fi
