@@ -526,9 +526,10 @@ if [ "$SKIP_CODEC" = false ]; then
         echo "[SKIP] Proprietary audio codec Installation"
     fi
 
-    if ask_yes_no "Install Mesa video drivers?"; then
+    if ask_yes_no "Install Mesa video drivers and codecs?"; then
         sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
         sudo dnf swap mesa-vulkan-drivers mesa-vulkan-drivers-freeworld || warn "Vulkan swap failed"
+        sudo dnf install -y libavcodec-freeworld || warn "Codec installation failed"
         
         if ask_yes_no "Install gstreamer video codecs?"; then
         sudo dnf install --setopt="install_weak_deps=False" -y \
