@@ -412,10 +412,6 @@ if [ "$SKIP_APPS" = false ]; then
             sudo dnf install -y --skip-unavailable protontricks || warn "Protontricks install failed"
         fi
 
-        if ask_yes_no "  Install Goverlay (GUI tool for mangohud)?"; then
-            sudo dnf install -y --skip-unavailable goverlay || warn "GOverlay install failed"
-        fi
-
         # --------- Group 4: Flatpak Apps ---------
         echo -e "\n  Group 4: Flatpak Apps"
         if [ "$FLATPAK_AVAILABLE" = false ]; then
@@ -457,14 +453,9 @@ if [ "$SKIP_APPS" = false ]; then
                 sudo flatpak install -y flathub net.davidotek.pupgui2 || warn "ProtonUp-Qt install failed"
             fi
 
-            if ask_yes_no "  Install Sunshine (Game streaming backend)?"; then
-                sudo flatpak install -y flathub dev.lizardbyte.app.Sunshine || warn "Sunshine install failed"
+            if ask_yes_no "  Install GOverlay (GUI tool for mangohud))?"; then
+                sudo flatpak install flathub io.github.benjamimgois.goverlay || warn "GOverlay install failed"
             fi
-
-            if ask_yes_no "  Install Moonlight (Game streaming client)?"; then
-                sudo flatpak install -y flathub com.moonlight_stream.Moonlight || warn "Moonlight install failed"
-            fi
-        fi
 
         # --------- Group 5: Apps Requiring custom Repos ---------
         echo -e "\n  Group 5: Apps requiring custom repos"
