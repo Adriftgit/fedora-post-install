@@ -1,5 +1,4 @@
 #!/bin/bash
-# Fedora-post-install setup – modular
 
 set -euo pipefail
 
