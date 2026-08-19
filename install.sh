@@ -25,6 +25,7 @@ SKIP_UPDATE=false
 SKIP_DNF=false
 SKIP_RPM=false
 SKIP_DE=false
+SKIP_BASE=false
 SKIP_VIRT=false
 SKIP_DISTRO=false
 SKIP_CACHY=false
@@ -40,6 +41,7 @@ for arg in "$@"; do
         --skip-dnf)   SKIP_DNF=true ;;
         --skip-rpm)   SKIP_RPM=true ;;
         --skip-de)    SKIP_DE=true ;;
+        --skip-base) SKIP_BASE=true ;;
         --skip-virt)  SKIP_VIRT=true ;;
         --skip-distro) SKIP_DISTRO=true ;;
         --skip-cachy) SKIP_CACHY=true ;;
@@ -47,7 +49,7 @@ for arg in "$@"; do
         --skip-shader) SKIP_SHADER=true ;;
         --skip-shell) SKIP_SHELL=true ;;
         --skip-wait)  SKIP_WAIT=true ;;
-        --skip-codec) SKIP_CODEC=true ;;
+        --skip-codec)  SKIP_CODEC=true ;;
         *) echo "Unknown option: $arg" >&2; exit 1 ;;
     esac
 done
@@ -129,20 +131,25 @@ else
 fi
 
 # =========================================================================
-# STAGE 3 – Desktop Environment and shell
+# STAGE 3 – Desktop Environment shell and login manager setup
 # =========================================================================
 echo -e "\n▶ Stage 3: Desktop Environment Setup"
 if [ "$SKIP_DE" = false ]; then
     if ask_yes_no "Set up Desktop Environment (Noctalia & kineticwe)?"; then
-        echo "Checking Kineticwe and Noctalia..."
         if ! is_installed_dnf "kineticwe" || ! is_installed_dnf "noctalia-git"; then
-            echo "Installing..."
             enable_copr_if_needed "lionheartp/Hyprland"
             enable_copr_if_needed "theblackdon/kineticwe"
             sudo dnf install -y --skip-unavailable kineticwe noctalia || warn "Desktop Environment and shell installation failed"
         else
             echo "[SKIP] Kineticwe and Noctalia are already installed."
         fi
+        
+        if ask_yes_no "Install SDDM (Login manager)?"; then
+            sudo dnf install -y sddm || warn "Login manager install failed"
+            sudo systemctl set-default graphical.target
+            sudo systemctl enable sddm.service 
+        fi
+
     else
         echo "[SKIP] Desktop Environment setup"
     fi
@@ -151,32 +158,77 @@ else
 fi
 
 # =========================================================================
-# STAGE 4 – Virtualization
+# STAGE 4 – Base Packages and optimisations
 # =========================================================================
-if [ "$SKIP_VIRT" = false ]; then
-    if ask_yes_no "Install virtualization environment?"; then
-        if ! command -v virt-manager &> /dev/null; then
-            echo "Installing virtualization environment..."
-            sudo dnf install -y @virtualization || { echo "Virtualization environment installation failed"; exit 1; }
-
-            for SOCK in virtqemud.socket virtnetworkd.socket virtstoraged.socket \
-                        virtnodedevd.socket virtsecretd.socket \
-                        virtnwfilterd.socket virtinterfaced.socket; do
-              sudo systemctl enable --now "$SOCK"
-            done
-            sudo usermod -aG libvirt "$TARGET_USER"
-            echo "Virtualization stack installed - Restart or logout for group membership to take effect."
+echo -e "\n▶ Stage 4: Base Packages and optimisations"
+if [ "$SKIP_BASE" = false ]; then
+    if [ "$SKIP_DNF" = false ]; then
+        if ask_yes_no "Apply DNF optimisations?"; then
+            sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
         else
-            echo "[SKIP] virt-manager is already installed."
+            echo "[SKIP] DNF Optimisations Installation"
         fi
     else
-        echo "[SKIP] Virtualization"
+        echo "[SKIP] DNF Optimisations Installation"
+    fi   
+else
+    echo "[SKIP] DNF optimisations"
+fi
+    
+    if [ "$SKIP_WAIT" = false ]; then
+        if ask_yes_no "Disable Network Manager Wait?"; then
+            sudo systemctl disable NetworkManager-wait-online.service || warn "Failed to disable service"
+        else
+            echo "[SKIP] Disable Network Manager Wait"
+        fi
+    else
+        echo "[SKIP] Disable Network Manager Wait (--skip-wait flag)"
+    fi
+else
+    echo "[SKIP] Base Packages (--skip-base flag)"
+fi
+
+echo -e "\n▶ Stage 4.5: Audio and video drivers/Packages (For properitory drivers and codecs not installed on base Fedora)"
+if [ "$SKIP_CODEC" = false ]; then
+    if ask_yes_no "Swap ffmpeg codecs?"; then
+        sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y || warn "ffmpeg swap failed"
+    fi
+    
+    if ask_yes_no "Install GStreamer media plugins? "; then
+    sudo dnf install gstreamer1-plugin-libav gstreamer1-plugins-ugly gstreamer1-plugins-bad-freeworld || warn "Gstreamer plugin install failed"
+    fi
+       
+    if ask_yes_no "Install Mesa and Vulkan drivers? "; then
+        sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
+        sudo dnf install mesa-dri-drivers mesa-libGL mesa-libEGL || warn "Mesa driver install failed"
+        sudo dnf install mesa-vulkan-drivers-freeworld || warn "Vulkan driver install failed"
+        sudo dnf install vulkan-loader || warn "Vulkan loader install failed"
+    fi
+else
+    echo "[SKIP] Video and audio codecs (--skip-codec flag)"
+fi
+
+# =========================================================================
+# STAGE 5 – Virtualization
+# =========================================================================
+echo -e "\n▶ Stage 5: Virtualization stack"
+if [ "$SKIP_VIRT" = false ]; then
+    if ask_yes_no "Install vm-curator?"; then
+        if ! is_installed_dnf "vm-curator"; then
+            sudo dnf copr enable -y linuxgamerlife/lgl-vm-curator
+            sudo dnf install -y vm-curator || warn "vm-curator installation failed"
+            sudo usermod -aG kvm "$TARGET_USER" || warn "Failed to add user to kvm group"
+            echo "Virtualization stack installed - Restart or logout for group membership to take effect."
+        else
+            echo "[SKIP] vm-curator is already installed."
+        fi
+    else
+        echo "[SKIP] Virtualization setup"
     fi
 else
     echo "[SKIP] Virtualization (--skip-virt flag)"
 fi
 
-echo -e "\n▶ Stage 4.5: Distrobox Setup"
 if [ "$SKIP_DISTRO" = false ]; then
     if ask_yes_no "Install Distrobox stack?"; then
         if ! command -v distrobox >/dev/null 2>&1 || ! command -v podman >/dev/null 2>&1; then
@@ -193,32 +245,9 @@ else
 fi
 
 # =========================================================================
-# STAGE 5 – Performance and Optimizations
+# STAGE 6 – Performance and Optimizations
 # =========================================================================
-echo -e "\n▶ Stage 5: Performance and Optimizations"
-
-if [ "$SKIP_DNF" = false ]; then
-    if ask_yes_no "Apply DNF optimisations?"; then
-        echo "Applying DNF Optimisations..."
-        sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
-        echo "DNF configuration updated."
-    else
-        echo "[SKIP] DNF optimisations"
-    fi
-else
-    echo "[SKIP] DNF optimisations (flag)"
-fi
-
-if [ "$SKIP_WAIT" = false ]; then
-    if ask_yes_no "Disable Network Manager Wait?"; then
-        sudo systemctl disable NetworkManager-wait-online.service || warn "Failed to disable service"
-        echo "Network Manager wait service disabled."
-    else
-        echo "[SKIP] Disable Network Manager Wait"
-    fi
-else
-    echo "[SKIP] Disable Network Manager Wait (--skip-wait flag)"
-fi
+echo -e "\n▶ Stage 6: Performance and Optimizations"
 
 if [ "$SKIP_CACHY" = false ]; then
     echo "CachyOS Kernel with addons"
@@ -281,20 +310,14 @@ else
 fi
 
 # =========================================================================
-# STAGE 6 – Applications
+# STAGE 7 – Applications
 # =========================================================================
-echo -e "\n▶ Stage 6: Applications"
+echo -e "\n▶ Stage 7: Applications"
 if [ "$SKIP_APPS" = false ]; then
     if ask_yes_no "Install Applications?"; then
 
         # --------- Group 1: Core Apps ---------
         echo -e "\n  Group 1: Core Apps"
-
-        if ask_yes_no "  Install SDDM (Login manager)?"; then
-            sudo dnf install -y --skip-unavailable sddm
-            sudo systemctl set-default graphical.target
-            sudo systemctl enable --force sddm.service || warn "Login manager install failed"
-        fi
 
         if ask_yes_no "  Install Dolphin (file manager)?"; then
             sudo dnf install -y --skip-unavailable dolphin || warn "Dolphin install failed"
@@ -513,40 +536,6 @@ if [ "$SKIP_APPS" = false ]; then
     fi
 else
     echo "[SKIP] User applications (--skip-apps flag)"
-fi
-
-# =========================================================================
-# STAGE 7 – Video and Audio Codecs Setup
-# =========================================================================
-echo -e "\n▶ Stage 7: Video and Audio Codecs"
-if [ "$SKIP_CODEC" = false ]; then
-    if ask_yes_no "Install proprietary audio codecs?"; then
-        sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y || warn "proprietary audio codecs swap failed"
-    else
-        echo "[SKIP] Proprietary audio codec Installation"
-    fi
-
-    if ask_yes_no "Install Mesa video drivers and codecs?"; then
-        sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
-        sudo dnf swap mesa-vulkan-drivers mesa-vulkan-drivers-freeworld || warn "Vulkan swap failed"
-        sudo dnf install -y libavcodec-freeworld || warn "Codec installation failed"
-        
-        if ask_yes_no "Install gstreamer video codecs?"; then
-        sudo dnf install --setopt="install_weak_deps=False" -y \
-            gstreamer1-plugins-good \
-            gstreamer1-plugins-bad-free \
-            gstreamer1-plugins-bad-freeworld \
-            gstreamer1-plugins-ugly \
-            gstreamer1-plugins-ugly-free \
-            gstreamer1-plugin-openh264 \
-            gstreamer1-plugin-libav \
-            --exclude=PackageKit-gstreamer-plugin || warn "gstreamer plugin install failed"
-            fi
-        else
-        echo "[SKIP] Proprietary video codecs Installation"
-    fi
-else
-    echo "[SKIP] Video and audio codecs (--skip-codec flag)"
 fi
 
 # =========================================================================
