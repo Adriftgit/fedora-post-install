@@ -38,7 +38,7 @@ Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-lo
 		
 **Virtualization**
 
-	Installs QEMU/KVM virtulisation packages and grants user permissions to manage virtual machines.
+	Installs VM-Curator and grants user permissions to manage virtual machines.
 	Installs distrobox
 	
 **Performance Kernel**
@@ -79,9 +79,6 @@ Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-lo
 	
 	Gaming apps
 	- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact
-
-	Game Stream apps
-	- Sunshine and moonlight
 
 	Multimedia and graphics apps
 	- kdenlive krita audacity
