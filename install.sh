@@ -191,10 +191,11 @@ if [ "$SKIP_CODEC" = false ]; then
     fi
 
     if ask_yes_no "Install Mesa and Vulkan drivers? "; then
+        sudo dnf swap mesa-va-drivers.i686 mesa-va-drivers-freeworld.i686 || warn "Mesa swap failed"
         sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
-        sudo dnf install mesa-dri-drivers mesa-libGL mesa-libEGL || warn "Mesa driver install failed"
-        sudo dnf install mesa-vulkan-drivers-freeworld || warn "Vulkan driver install failed"
-        sudo dnf install vulkan-loader || warn "Vulkan loader install failed"
+        sudo dnf install -y mesa-dri-drivers mesa-libGL mesa-libEGL || warn "Mesa driver install failed"
+        sudo dnf install -y mesa-vulkan-drivers-freeworld || warn "Vulkan driver install failed"
+        sudo dnf install -y vulkan-loader || warn "Vulkan loader install failed"
     fi
 else
     echo "[SKIP] Video and audio codecs (--skip-codec flag)"
