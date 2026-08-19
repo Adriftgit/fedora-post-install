@@ -25,7 +25,6 @@ SKIP_UPDATE=false
 SKIP_DNF=false
 SKIP_RPM=false
 SKIP_DE=false
-SKIP_BASE=false
 SKIP_VIRT=false
 SKIP_DISTRO=false
 SKIP_CACHY=false
@@ -41,7 +40,6 @@ for arg in "$@"; do
         --skip-dnf)   SKIP_DNF=true ;;
         --skip-rpm)   SKIP_RPM=true ;;
         --skip-de)    SKIP_DE=true ;;
-        --skip-base) SKIP_BASE=true ;;
         --skip-virt)  SKIP_VIRT=true ;;
         --skip-distro) SKIP_DISTRO=true ;;
         --skip-cachy) SKIP_CACHY=true ;;
@@ -104,11 +102,11 @@ if [ "$SKIP_UPDATE" = false ]; then
         if command -v flatpak &>/dev/null; then
             sudo flatpak update -y || warn "Flatpak update failed"
         fi
-    else    
+    else
         echo "[SKIP] System update skipped"
     fi
 fi
-    
+
 # =========================================================================
 # STAGE 2 – RPM Fusion Repos
 # =========================================================================
@@ -143,11 +141,11 @@ if [ "$SKIP_DE" = false ]; then
         else
             echo "[SKIP] Kineticwe and Noctalia are already installed."
         fi
-        
+
         if ask_yes_no "Install SDDM (Login manager)?"; then
             sudo dnf install -y sddm || warn "Login manager install failed"
             sudo systemctl set-default graphical.target
-            sudo systemctl enable sddm.service 
+            sudo systemctl enable sddm.service
         fi
 
     else
@@ -161,43 +159,38 @@ fi
 # STAGE 4 – Base Packages and optimisations
 # =========================================================================
 echo -e "\n▶ Stage 4: Base Packages and optimisations"
-if [ "$SKIP_BASE" = false ]; then
-    if [ "$SKIP_DNF" = false ]; then
-        if ask_yes_no "Apply DNF optimisations?"; then
-            sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
-        else
-            echo "[SKIP] DNF Optimisations Installation"
-        fi
+echo -e "\n▶ DNF and Network optimisations"
+if [ "$SKIP_DNF" = false ]; then
+    if ask_yes_no "Apply DNF optimisations?"; then
+        sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
     else
         echo "[SKIP] DNF Optimisations Installation"
-    fi   
-else
-    echo "[SKIP] DNF optimisations"
-fi
-    
-    if [ "$SKIP_WAIT" = false ]; then
-        if ask_yes_no "Disable Network Manager Wait?"; then
-            sudo systemctl disable NetworkManager-wait-online.service || warn "Failed to disable service"
-        else
-            echo "[SKIP] Disable Network Manager Wait"
-        fi
-    else
-        echo "[SKIP] Disable Network Manager Wait (--skip-wait flag)"
     fi
 else
-    echo "[SKIP] Base Packages (--skip-base flag)"
+    echo "[SKIP] Desktop Environment (--skip-dnf flag)"
 fi
 
-echo -e "\n▶ Stage 4.5: Audio and video drivers/Packages (For properitory drivers and codecs not installed on base Fedora)"
+if [ "$SKIP_WAIT" = false ]; then
+    if ask_yes_no "Disable Network Manager Wait?"; then
+        sudo systemctl disable NetworkManager-wait-online.service || warn "Failed to disable service"
+        echo "Network Manager wait service disabled."
+    else
+        echo "[SKIP] Disable Network Manager Wait"
+    fi
+else
+    echo "[SKIP] Disable Network Manager Wait (--skip-wait flag)"
+fi
+
+echo -e "\n▶ Audio and video drivers/Packages (For properitory drivers and codecs not installed on base Fedora)"
 if [ "$SKIP_CODEC" = false ]; then
     if ask_yes_no "Swap ffmpeg codecs?"; then
         sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y || warn "ffmpeg swap failed"
     fi
-    
+
     if ask_yes_no "Install GStreamer media plugins? "; then
     sudo dnf install gstreamer1-plugin-libav gstreamer1-plugins-ugly gstreamer1-plugins-bad-freeworld || warn "Gstreamer plugin install failed"
     fi
-       
+
     if ask_yes_no "Install Mesa and Vulkan drivers? "; then
         sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
         sudo dnf install mesa-dri-drivers mesa-libGL mesa-libEGL || warn "Mesa driver install failed"
@@ -322,11 +315,11 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install Dolphin (file manager)?"; then
             sudo dnf install -y --skip-unavailable dolphin || warn "Dolphin install failed"
         fi
-        
+
         if ask_yes_no "  Install Ark (File compression tool)?"; then
             sudo dnf install -y --skip-unavailable ark || warn "Ark install failed"
         fi
-        
+
         if ask_yes_no "  Install Kitty (terminal)?"; then
             sudo dnf install -y --skip-unavailable kitty || warn "Kitty install failed"
         fi
@@ -339,11 +332,11 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install MPV (media player)?"; then
             sudo dnf install -y --skip-unavailable mpv || warn "MPV install failed"
         fi
-        
+
         if ask_yes_no "  Install Timeshift (System Restore tool)?"; then
             sudo dnf install -y --skip-unavailable timeshift || warn "Timeshift install failed"
         fi
-        
+
         if ask_yes_no "  Install Loupe (image viewer)?"; then
             sudo dnf install -y --skip-unavailable loupe || warn "Loupe install failed"
         fi
@@ -400,7 +393,7 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install htop (TUI process viewer)?"; then
             sudo dnf install -y --skip-unavailable htop || warn "htop install failed"
         fi
-        
+
         if ask_yes_no "  Install pam-kwallet (Auto-unlock KDE Wallet on login)?"; then
             sudo dnf install -y --skip-unavailable pam-kwallet || warn "pam-kwallet install failed"
         fi
@@ -440,7 +433,7 @@ if [ "$SKIP_APPS" = false ]; then
             if ask_yes_no "  Install Bazaar (app store)?"; then
                 sudo flatpak install -y flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
             fi
-            
+
             if ask_yes_no "  Install Pikabackup (For user files backup)?"; then
                 sudo flatpak install -y flathub org.gnome.World.PikaBackup || warn "PikaBackup install failed"
             fi
@@ -468,7 +461,7 @@ if [ "$SKIP_APPS" = false ]; then
             if ask_yes_no "  Install ProtonUp-Qt (ProtonPlus alternative)?"; then
                 sudo flatpak install -y flathub net.davidotek.pupgui2 || warn "ProtonUp-Qt install failed"
             fi
-            
+
             if ask_yes_no "  Install Sunshine (Game streaming backend)?"; then
                 sudo flatpak install -y flathub dev.lizardbyte.app.Sunshine || warn "Sunshine install failed"
             fi
@@ -509,7 +502,7 @@ if [ "$SKIP_APPS" = false ]; then
                 echo "  [SKIP] Helium Browser (already installed)"
             fi
         fi
-        
+
         if ask_yes_no "  Install lgl-system-loadout (Alternate GUI app for setting up Fedora)?"; then
             if ! is_installed_dnf "lgl-system-loadout"; then
                 if enable_copr_if_needed "linuxgamerlife/lgl-system-loadout"; then
