@@ -318,6 +318,7 @@ if [ "$SKIP_APPS" = false ]; then
 
         if ask_yes_no "  Install Kitty (terminal)?"; then
             sudo dnf install -y --skip-unavailable kitty || warn "Kitty install failed"
+            kwriteconfig6 --file kdeglobals --group General --key TerminalService kitty.desktop || warn "Unable to integrate kitty in Dolhpin"
         fi
 
         if ask_yes_no "  Install Brave origin (browser)?"; then
