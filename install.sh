@@ -187,7 +187,14 @@ if [ "$SKIP_CODEC" = false ]; then
     fi
 
     if ask_yes_no "Install GStreamer media plugins? "; then
-    sudo dnf install gstreamer1-plugin-libav gstreamer1-plugins-ugly gstreamer1-plugins-bad-freeworld || warn "Gstreamer plugin install failed"
+    sudo dnf install -y \
+    libva-utils \
+    noopenh264 \
+    mozilla-openh264 \
+    gstreamer1-plugin-openh264 \
+    gstreamer1-plugin-libav \
+    gstreamer1-plugins-bad-freeworld \
+    gstreamer1-plugins-ugly \ || warn "Gstreamer plugin install failed"
     fi
 
     if ask_yes_no "Install Mesa and Vulkan drivers? "; then
