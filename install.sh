@@ -194,7 +194,7 @@ if [ "$SKIP_CODEC" = false ]; then
     gstreamer1-plugin-openh264 \
     gstreamer1-plugin-libav \
     gstreamer1-plugins-bad-freeworld \
-    gstreamer1-plugins-ugly \ || warn "Gstreamer plugin install failed"
+    gstreamer1-plugins-ugly || warn "Gstreamer plugin install failed"
     fi
 
     if ask_yes_no "Install Mesa and Vulkan drivers? "; then
@@ -462,9 +462,10 @@ if [ "$SKIP_APPS" = false ]; then
                 sudo flatpak install -y flathub net.davidotek.pupgui2 || warn "ProtonUp-Qt install failed"
             fi
 
-            if ask_yes_no "  Install GOverlay (GUI tool for mangohud))?"; then
-                sudo flatpak install flathub io.github.benjamimgois.goverlay || warn "GOverlay install failed"
+            if ask_yes_no "  Install GOverlay (GUI tool for mangohud)?"; then
+                sudo flatpak install -y flathub io.github.benjamimgois.goverlay || warn "GOverlay install failed"
             fi
+        fi # Added missing fi here
 
         # --------- Group 5: Apps Requiring custom Repos ---------
         echo -e "\n  Group 5: Apps requiring custom repos"
@@ -518,6 +519,7 @@ if [ "$SKIP_APPS" = false ]; then
                 echo "  [SKIP] lact (already installed)"
             fi
         fi
+    else
         echo "[SKIP] User Apps Installation"
     fi
 else
