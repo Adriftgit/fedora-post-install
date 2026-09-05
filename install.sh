@@ -230,7 +230,7 @@ else
 fi
 
 if [ "$SKIP_DISTRO" = false ]; then
-    if ask_yes_no "Install Distrobox stack?"; then
+    if ask_yes_no "Install Distrobox and Podman (Use any linux distribution inside terminal)?"; then
         if ! command -v distrobox >/dev/null 2>&1 || ! command -v podman >/dev/null 2>&1; then
             echo "Installing Podman and Distrobox..."
             sudo dnf install -y podman distrobox || warn "Distrobox installation failed"
@@ -518,8 +518,6 @@ if [ "$SKIP_APPS" = false ]; then
                 echo "  [SKIP] lact (already installed)"
             fi
         fi
-
-    else
         echo "[SKIP] User Apps Installation"
     fi
 else
