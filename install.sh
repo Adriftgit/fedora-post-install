@@ -405,7 +405,7 @@ if [ "$SKIP_APPS" = false ]; then
             sudo dnf install -y --skip-unavailable btop || warn "btop install failed"
         fi
 
-        if ask_yes_no "  Install htop (TUI process viewer)?"; then
+        if ask_yes_no "  Install htop (Terminal process viewer)?"; then
             sudo dnf install -y --skip-unavailable htop || warn "htop install failed"
         fi
 
@@ -503,7 +503,7 @@ if [ "$SKIP_APPS" = false ]; then
 
         # --------- Group 6: Apps Requiring custom Repos ---------
         echo -e "\n  Group 6: Apps requiring custom repos"
-        if ask_yes_no "  Install yazi (TUI file manager)?"; then
+        if ask_yes_no "  Install yazi (Terminal file manager)?"; then
             if ! is_installed_dnf "yazi"; then
                 sudo dnf copr enable -y lihaohong/yazi || warn "Failed to enable yazi copr"
                 sudo dnf install -y yazi || warn "yazi install failed"
