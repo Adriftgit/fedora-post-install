@@ -36,18 +36,18 @@ SKIP_CODEC=false
 
 for arg in "$@"; do
     case "$arg" in
-        --skip-update)   SKIP_UPDATE=true ;;
-        --skip-dnf)   SKIP_DNF=true ;;
-        --skip-rpm)   SKIP_RPM=true ;;
-        --skip-de)    SKIP_DE=true ;;
-        --skip-virt)  SKIP_VIRT=true ;;
+        --skip-update) SKIP_UPDATE=true ;;
+        --skip-dnf)    SKIP_DNF=true ;;
+        --skip-rpm)    SKIP_RPM=true ;;
+        --skip-de)     SKIP_DE=true ;;
+        --skip-virt)   SKIP_VIRT=true ;;
         --skip-distro) SKIP_DISTRO=true ;;
-        --skip-cachy) SKIP_CACHY=true ;;
-        --skip-apps)  SKIP_APPS=true ;;
+        --skip-cachy)  SKIP_CACHY=true ;;
+        --skip-apps)   SKIP_APPS=true ;;
         --skip-shader) SKIP_SHADER=true ;;
-        --skip-shell) SKIP_SHELL=true ;;
-        --skip-wait)  SKIP_WAIT=true ;;
-        --skip-wifi)  SKIP_WIFI=true ;; 
+        --skip-shell)  SKIP_SHELL=true ;;
+        --skip-wait)   SKIP_WAIT=true ;;
+        --skip-wifi)   SKIP_WIFI=true ;;
         --skip-codec)  SKIP_CODEC=true ;;
         *) echo "Unknown option: $arg" >&2; exit 1 ;;
     esac
@@ -65,17 +65,6 @@ warn() {
 error_exit() {
     echo "[ERROR] $*" >&2
     exit 1
-}
-
-enable_copr_if_needed() {
-    local copr_repo="$1"
-    if ! sudo dnf copr list 2>/dev/null | grep -qF "$copr_repo"; then
-        if ! sudo dnf copr enable -y "$copr_repo"; then
-            warn "Failed to enable COPR: $copr_repo"
-            return 1
-        fi
-    fi
-    return 0
 }
 
 ask_yes_no() {
@@ -122,7 +111,7 @@ if [ "$SKIP_RPM" = false ]; then
         if ! is_installed_dnf "rpmfusion-free-release" || ! is_installed_dnf "rpmfusion-nonfree-release"; then
             echo "Enabling RPM Fusion Free..."
             sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm || warn "RPM Repo installation failed"
-            sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm  || warn "RPM Non free Repo installation failed"
+            sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm || warn "RPM Non free Repo installation failed"
         else
             echo "[SKIP] RPM Fusion Free and Non‑Free is already installed."
         fi
@@ -140,8 +129,8 @@ echo -e "\n▶ Stage 3: Desktop Environment Setup"
 if [ "$SKIP_DE" = false ]; then
     if ask_yes_no "Set up Desktop Environment (Noctalia & kineticwe)?"; then
         if ! is_installed_dnf "kineticwe" || ! is_installed_dnf "noctalia-git"; then
-            enable_copr_if_needed "lionheartp/Hyprland"
-            enable_copr_if_needed "theblackdon/kineticwe"
+            sudo dnf copr enable -y lionheartp/Hyprland || warn "Failed to enable Hyprland copr"
+            sudo dnf copr enable -y theblackdon/kineticwe || warn "Failed to enable kineticwe copr"
             sudo dnf install -y --skip-unavailable kineticwe noctalia-git || warn "Desktop Environment and shell installation failed"
         else
             echo "[SKIP] Kineticwe and Noctalia are already installed."
@@ -149,10 +138,9 @@ if [ "$SKIP_DE" = false ]; then
 
         if ask_yes_no "Install SDDM (Login manager)?"; then
             sudo dnf install -y sddm || warn "Login manager install failed"
-            sudo systemctl set-default graphical.target
-            sudo systemctl enable sddm.service
+            sudo systemctl set-default graphical.target || warn "Failed to set default graphical target"
+            sudo systemctl enable sddm.service || warn "Failed to enable sddm service"
         fi
-
     else
         echo "[SKIP] Desktop Environment setup"
     fi
@@ -167,12 +155,13 @@ echo -e "\n▶ Stage 4: Base Packages and optimisations"
 echo -e "\n▶ DNF and Network optimisations"
 if [ "$SKIP_DNF" = false ]; then
     if ask_yes_no "Apply DNF optimisations?"; then
-        sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
+        sudo dnf install -y dnf-plugins-core || warn "DNF optimisations failed"
+        sudo dnf config-manager --setopt=max_parallel_downloads=15 --save || warn "DNF optimisations failed"
     else
         echo "[SKIP] DNF Optimisations Installation"
     fi
 else
-    echo "[SKIP] Desktop Environment (--skip-dnf flag)"
+    echo "[SKIP] DNF optimisations (--skip-dnf flag)"
 fi
 
 if [ "$SKIP_WAIT" = false ]; then
@@ -198,25 +187,25 @@ else
     echo "[SKIP] Wi-Fi plugin (--skip-wifi flag)"
 fi
 
-echo -e "\n▶ Audio and video drivers/Packages (For properitory drivers and codecs not installed on base Fedora)"
+echo -e "\n▶ Audio and video drivers/Packages (For proprietary drivers and codecs not installed on base Fedora)"
 if [ "$SKIP_CODEC" = false ]; then
     if ask_yes_no "Swap ffmpeg codecs?"; then
         sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y || warn "ffmpeg swap failed"
     fi
 
     if ask_yes_no "Install GStreamer media plugins? "; then
-    sudo dnf install -y \
-    libva-utils \
-    noopenh264 \
-    mozilla-openh264 \
-    gstreamer1-plugin-openh264 \
-    gstreamer1-plugin-libav \
-    gstreamer1-plugins-bad-freeworld \
-    gstreamer1-plugins-ugly || warn "Gstreamer plugin install failed"
+        sudo dnf install -y \
+            libva-utils \
+            noopenh264 \
+            mozilla-openh264 \
+            gstreamer1-plugin-openh264 \
+            gstreamer1-plugin-libav \
+            gstreamer1-plugins-bad-freeworld \
+            gstreamer1-plugins-ugly || warn "Gstreamer plugin install failed"
     fi
 
     if ask_yes_no "Install Mesa and Vulkan drivers? "; then
-        sudo dnf swap -y mesa-va-drivers.i686 mesa-va-drivers-freeworld.i686 || warn "Mesa swap failed"
+        sudo dnf swap -y mesa-va-drivers.i686 mesa-va-drivers-freeworld.i686 || warn "Mesa i686 swap failed (may not be installed)"
         sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
         sudo dnf install -y mesa-dri-drivers mesa-libGL mesa-libEGL || warn "Mesa driver install failed"
         sudo dnf install -y mesa-vulkan-drivers-freeworld || warn "Vulkan driver install failed"
@@ -233,7 +222,7 @@ echo -e "\n▶ Stage 5: Virtualization stack"
 if [ "$SKIP_VIRT" = false ]; then
     if ask_yes_no "Install vm-curator?"; then
         if ! is_installed_dnf "vm-curator"; then
-            sudo dnf copr enable -y linuxgamerlife/lgl-vm-curator
+            sudo dnf copr enable -y linuxgamerlife/lgl-vm-curator || warn "Failed to enable lgl-vm-curator copr"
             sudo dnf install -y vm-curator || warn "vm-curator installation failed"
             sudo usermod -aG kvm "$TARGET_USER" || warn "Failed to add user to kvm group"
             echo "Virtualization stack installed - Restart or logout for group membership to take effect."
@@ -274,8 +263,8 @@ if [ "$SKIP_CACHY" = false ]; then
         echo "[INFO] CachyOS Kernel is already installed. Skipping..."
     else
         if ask_yes_no "Install CachyOS Kernel and Performance Schedulers (this can take few minutes)?"; then
-            enable_copr_if_needed "bieszczaders/kernel-cachyos"
-            enable_copr_if_needed "bieszczaders/kernel-cachyos-addons"
+            sudo dnf copr enable -y bieszczaders/kernel-cachyos || warn "Failed to enable kernel-cachyos copr"
+            sudo dnf copr enable -y bieszczaders/kernel-cachyos-addons || warn "Failed to enable kernel-cachyos-addons copr"
 
             sudo dnf install -y --skip-unavailable \
                 kernel-cachyos kernel-cachyos-devel-matched libdnf5-plugin-actions || warn "CachyOS kernel install failed"
@@ -344,10 +333,10 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install Nautilus (Dolphin alternative)?"; then
             sudo dnf install -y --skip-unavailable nautilus file-roller-nautilus || warn "Nautilus install failed"
         fi
-        
+
         if ask_yes_no "  Install Kitty (terminal)?"; then
             sudo dnf install -y --skip-unavailable kitty || warn "Kitty install failed"
-            kwriteconfig6 --file kdeglobals --group General --key TerminalService kitty.desktop || warn "Unable to integrate kitty in Dolhpin"
+            kwriteconfig6 --file kdeglobals --group General --key TerminalService kitty.desktop || warn "Unable to integrate kitty in Dolphin"
         fi
 
         if ask_yes_no "  Install Brave origin (browser)?"; then
@@ -425,24 +414,24 @@ if [ "$SKIP_APPS" = false ]; then
         fi
 
         # --------- Group 3: Text editing Apps ---------
-         echo -e "\n  Group 3: Text editing Apps"
- 
+        echo -e "\n  Group 3: Text editing Apps"
+
         if ask_yes_no "  Install Kate (zed alternative for editing scripts)?"; then
             sudo dnf install -y --skip-unavailable kate || warn "kate install failed"
         fi
- 
+
         if ask_yes_no "  Install libreoffice-writer (Word processor)?"; then
             sudo dnf install -y --skip-unavailable libreoffice-writer || warn "libreoffice-writer install failed"
         fi
-        
-        if ask_yes_no "  Install libreoffice-calc (sheets) ?"; then
+
+        if ask_yes_no "  Install libreoffice-calc (sheets)?"; then
             sudo dnf install -y --skip-unavailable libreoffice-calc || warn "libreoffice-calc install failed"
         fi
-        
+
         if ask_yes_no "  Install libreoffice-impress (power point)?"; then
             sudo dnf install -y --skip-unavailable libreoffice-impress || warn "libreoffice-impress install failed"
         fi
-        
+
         if ask_yes_no "  Install libreoffice-draw (PDF sign/reader/editor)?"; then
             sudo dnf install -y --skip-unavailable libreoffice-draw || warn "libreoffice-draw install failed"
         fi
@@ -516,9 +505,8 @@ if [ "$SKIP_APPS" = false ]; then
         echo -e "\n  Group 6: Apps requiring custom repos"
         if ask_yes_no "  Install yazi (TUI file manager)?"; then
             if ! is_installed_dnf "yazi"; then
-                if enable_copr_if_needed "lihaohong/yazi"; then
-                    sudo dnf install -y yazi || warn "yazi install failed"
-                fi
+                sudo dnf copr enable -y lihaohong/yazi || warn "Failed to enable yazi copr"
+                sudo dnf install -y yazi || warn "yazi install failed"
             else
                 echo "  [SKIP] yazi (already installed)"
             fi
@@ -526,9 +514,8 @@ if [ "$SKIP_APPS" = false ]; then
 
         if ask_yes_no "  Install faugus-launcher (Lightweight game launcher)?"; then
             if ! is_installed_dnf "faugus-launcher"; then
-                if enable_copr_if_needed "faugus/faugus-launcher"; then
-                    sudo dnf install -y faugus-launcher || warn "faugus-launcher install failed"
-                fi
+                sudo dnf copr enable -y faugus/faugus-launcher || warn "Failed to enable faugus-launcher copr"
+                sudo dnf install -y faugus-launcher || warn "faugus-launcher install failed"
             else
                 echo "  [SKIP] faugus-launcher (already installed)"
             fi
@@ -536,9 +523,8 @@ if [ "$SKIP_APPS" = false ]; then
 
         if ask_yes_no "  Install Helium Browser (Lightweight firefox alternative)?"; then
             if ! is_installed_dnf "helium-bin"; then
-                if enable_copr_if_needed "imput/helium"; then
-                    sudo dnf install -y helium-bin || warn "Helium install failed"
-                fi
+                sudo dnf copr enable -y imput/helium || warn "Failed to enable helium copr"
+                sudo dnf install -y helium-bin || warn "Helium install failed"
             else
                 echo "  [SKIP] Helium Browser (already installed)"
             fi
@@ -546,9 +532,8 @@ if [ "$SKIP_APPS" = false ]; then
 
         if ask_yes_no "  Install lgl-system-loadout (Alternate GUI app for setting up Fedora)?"; then
             if ! is_installed_dnf "lgl-system-loadout"; then
-                if enable_copr_if_needed "linuxgamerlife/lgl-system-loadout"; then
-                    sudo dnf install -y --skip-unavailable lgl-system-loadout || warn "lgl-system-loadout install failed"
-                fi
+               sudo dnf copr enable -y linuxgamerlife/lgl-system-loadout || warn "Failed to enable lgl-system-loadout copr"
+               sudo dnf install -y --skip-unavailable lgl-system-loadout || warn "lgl-system-loadout install failed"
             else
                 echo "  [SKIP] lgl-system-loadout (already installed)"
             fi
@@ -556,10 +541,9 @@ if [ "$SKIP_APPS" = false ]; then
 
         if ask_yes_no "  Install and set up LACT (GPU overclocking tool)?"; then
             if ! is_installed_dnf "lact"; then
-                if enable_copr_if_needed "ilyaz/LACT"; then
-                    sudo dnf install -y lact || warn "lact install failed"
-                    sudo systemctl enable --now lactd
-                fi
+                sudo dnf copr enable -y ilyaz/LACT || warn "Failed to enable LACT copr"
+                sudo dnf install -y lact || warn "lact install failed"
+                sudo systemctl enable --now lactd || warn "Failed to enable lactd service"
             else
                 echo "  [SKIP] lact (already installed)"
             fi
@@ -627,9 +611,8 @@ if [ "$SKIP_SHELL" = false ]; then
     # --- STARSHIP ---
     if ask_yes_no "Set up starship prompt?"; then
         if ! is_installed_dnf "starship"; then
-            if enable_copr_if_needed "atim/starship"; then
-                sudo dnf install -y starship || warn "starship install failed"
-            fi
+            sudo dnf copr enable -y atim/starship || warn "Failed to enable starship copr"
+            sudo dnf install -y starship || warn "starship install failed"
         fi
 
         if command -v starship &>/dev/null; then
