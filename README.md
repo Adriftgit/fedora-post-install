@@ -55,77 +55,78 @@ Run using
 	
 - **User Applications**
 
-	Core/Essential apps
-	- App store manager > flatpak flathub flatseal warehouse
-	- App store > bazaar 
-	- Browser > Brave-origin-nightly 
-	- File manager > Dolphin or Nautilus
-	- Zip file manager > Ark
-	- Terminal > Kitty
-	- DejaDup > User file backup/restore tool
-	- Timeshift > System restore tool
-	- Rustdesk > Remote desktop tool	
-	- Spectacle > Screen capture tool
+	- Core/Essential apps
+		- App store manager > flatpak flathub flatseal warehouse
+		- App store > bazaar 
+		- Browser > Brave-origin-nightly 
+		- File manager > Dolphin or Nautilus
+		- Zip file manager > Ark
+		- Terminal > Kitty
+		- DejaDup > User file backup/restore tool
+		- Timeshift > System restore tool
+			
+		- Spectacle > Screen capture tool
 
-	Utility apps
-	- Media player > mpv
-	- Image viewer > loupe
-	- Calculator > gnome-calculator 
-	- File sharing > qbittorrent 
-	- For auto mounting external drives > kde partitionmanager
-	- Other apps > fastfetch rsync duf btop htop distroshelf
-   	- Kwallet autologin > pam-kwallet
+	- Utility apps
+		- Media player > mpv
+		- Image viewer > loupe
+		- Calculator > gnome-calculator 
+		- File sharing > qbittorrent 
+		- For auto mounting external drives > kde partitionmanager
+		- Other apps > fastfetch rsync duf btop htop distroshelf
+   		- Kwallet autologin > pam-kwallet
+       	- Rustdesk > Remote desktop tool
+       	- Warehouse > Flatpak app backup tool
 
-	Text editing apps
-	- Basic writer > Kate
-	- Spreadsheet editor > libreoffice calc
-	- Powerpoint > libreoffice-impress
-	- PDF sign/reader/editor > libreoffice-draw
-	- Word processor > libreoffice-writer
-	- Script editor > Zed
-   	- Online notes sync > Obsidian
+	- Text editing apps
+		- Basic writer > Kate
+		- Spreadsheet editor > libreoffice calc
+		- Powerpoint > libreoffice-impress
+		- PDF sign/reader/editor > libreoffice-draw
+		- Word processor > libreoffice-writer
+		- Script editor > Zed
+   		- Online notes sync > Obsidian
    	   
-	Gaming apps
-	- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact
+	- Gaming apps
+		- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact
 
-	Multimedia and graphics apps
-	- kdenlive krita audacity
+	- Multimedia and graphics apps
+		- kdenlive krita audacity
 
-	Installs following apps by enabling repos
-	- wehagy/protonplus
-	- ilyaz/LACT
-	- lihaohong/yazi
-	- atim/starship
-	- faugus/faugus-launcher
-	- imput/helium
+	- Installs following apps by enabling repos
+		- wehagy/protonplus
+		- ilyaz/LACT
+		- lihaohong/yazi
+		- atim/starship
+		- faugus/faugus-launcher
+		- imput/helium
 	
-- **Audio and video codecs:** Swaps to proprietary versions as Fedora excludes it due to patent restrictions
+	- **Audio and video codecs:** Swaps to proprietary versions as Fedora excludes it due to patent restrictions
 
-	- For Audio: Swaps ffmpeg-free for full ffmpeg
+		- For Audio: Swaps ffmpeg-free for full ffmpeg
 
-	- For Video:
-		- Swaps mesa-va-drivers and mesa-vulkan-drivers with their freeworld variants.
-		- GStreamer plugins (good, bad-free, bad-freeworld, ugly, ugly-free, openh264, libav)
+		- For Video:
+			- Swaps mesa-va-drivers and mesa-vulkan-drivers with their freeworld variants.
+			- GStreamer plugins (good, bad-free, bad-freeworld, ugly, ugly-free, openh264, libav)
 
-- **Terminal UI Customization**
+	- **Terminal UI Customization**
 
-	Choice to install zsh or fish shell 
-	Choice to install starship gruvbox theme for selected shell
+		- Choice to install zsh or fish shell 
+		- Choice to install starship gruvbox theme for selected shell
 
 ---
 **Recommended manual configurations post reboot**
 
-	Polkit Security:
+- Polkit Security:
 	- Open Noctalia settings
 	- Search for security
 	- Enable the polkit agent
-
-	KDE System Settings Tweaks (Disable search services running in background as not used by noctalia)
+- KDE System Settings Tweaks (Disable search services running in background as not used by noctalia)
 	- Go to search and disable File Search
 	- Disable Plasma Search
 	- Turn off History in KRunner
 
-	KDE Wallet Setup (for pam-kwallet auto-unlock):"
+- KDE Wallet Setup (for pam-kwallet auto-unlock):"
 	- When an app asks to create a wallet"
 	- Choose standard (Blowfish) encryption"
 	- And use your exact login password."
