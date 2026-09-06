@@ -121,7 +121,7 @@ fi
 if [ "$SKIP_DNF" = false ]; then
     if ask_yes_no "Apply DNF optimisations?"; then
         sudo dnf install -y dnf5-plugins || warn "DNF optimisations failed"
-        sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
+        sudo dnf config-manager setopt max_parallel_downloads=10 fastestmirror=true || warn "DNF optimisations failed"
     else
         echo "[SKIP] DNF Optimisations Installation"
     fi
