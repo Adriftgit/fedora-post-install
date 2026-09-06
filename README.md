@@ -62,8 +62,9 @@ Run using
 	- File manager > Dolphin or Nautilus
 	- Zip file manager > Ark
 	- Terminal > Kitty
-	- Pikabackup > User file backup/restore tool
+	- DejaDup > User file backup/restore tool
 	- Timeshift > System restore tool
+	- Rustdesk > Remote desktop tool	
 	- Spectacle > Screen capture tool
 
 	Utility apps
