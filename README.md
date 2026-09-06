@@ -61,7 +61,7 @@ Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-lo
 	- App store manager > flatpak flathub flatseal 
 	- App store > bazaar 
 	- Browser > Brave-origin-nightly 
-	- File manager > Dolphin
+	- File manager > Dolphin or Nautilus
 	- Zip file manager > Ark
 	- Terminal > Kitty
 	- Pikabackup > User file backup/restore tool
