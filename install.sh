@@ -476,7 +476,11 @@ if [ "$SKIP_APPS" = false ]; then
             if ask_yes_no "  Install Dejadup (User file backup app)?"; then
                 sudo flatpak install -y flathub org.gnome.DejaDup || warn "Dejadup install failed"
             fi
-
+            
+            if ask_yes_no "  Install Warehouse (For flatpak apps backup)?"; then
+                sudo flatpak install -y flathub io.github.flattool.Warehouse || warn "Warehouse install failed"
+            fi
+            
             if ask_yes_no "  Install Rustdesk (Remote ddesktop app)?"; then
                 sudo flatpak install -y flathub com.rustdesk.RustDesk || warn "Rustdesk install failed"
             fi
