@@ -77,12 +77,14 @@ Run using
    	- Kwallet autologin > pam-kwallet
 
 	Text editing apps
-	- Basic writer/ script editor > Kate
+	- Basic writer > Kate
 	- Spreadsheet editor > libreoffice calc
 	- Powerpoint > libreoffice-impress
 	- PDF sign/reader/editor > libreoffice-draw
 	- Word processor > libreoffice-writer
-	
+	- Script editor > Zed
+   	- Online notes sync > Obsidian
+   	   
 	Gaming apps
 	- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact
 
