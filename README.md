@@ -1,17 +1,22 @@
 
-Fedora Post-Install Script
+**Fedora Post-Install Script:**
 
-My custom, automated post-installation script for Fedora 44 headless install. Everything in this script is modular and optional, designed to setup fully configured desktop and gaming environment. 
-Recommended to install at least Desktop Environment and Desktop Shell
+- My custom, automated post-installation script for Fedora 44 headless install. Everything in this script is modular and optional, designed to setup fully configured desktop and gaming environment. 
+- Recommended to install at least Desktop Environment and Desktop Shell. 
 
 **Disclaimers:** 
 
-	Learning Project: Expect heavy use of AI assistance in crafting and optimizing this script.
+- Learning Project - Expect heavy use of AI assistance in crafting and optimising this script.
+	
+- Graphics and CPU optimisations are for AMD GPU and CPU as I can not test Nvidia GPU or Intel CPU.   
 
-	Attribution: This script aggregates and compiles packages and repositories created by other developers. 
-	All credit and intellectual property rights (if any) belongs entirely to their respective authors.
+- This script aggregates and compiles packages and repositories created by other developers. 
 
-**Recommendation:** While all options are modular, recommended to install at least Desktop Environment and Shell.
+- All credit and intellectual property rights (if any) belongs entirely to their respective authors.
+
+**Recommendations** : 
+
+While all options are modular, recommended to install at least Desktop Environment and Shell.
 
 Run using
 
@@ -22,40 +27,33 @@ Run using
 	./install.sh
 	
 ---	
-**Following options are available with this script**
+**Script Functions**
 
-**System Updates & Repositories:** Automates system upgrades and enables RPM Fusion (Free & Non-Free).
+- **System Updates & Repositories** - Automates system upgrades and enables RPM Fusion (Free & Non-Free).
 
-**Login manager:** Configures system to start with SDDM Login manager
+- **Login manager** - Configures system to start with SDDM Login manager
 
-**DNF Cleanup:** Clears leftover packages and DNF cache post install
+- **DNF Cleanup** - Clears leftover packages and DNF cache post install
 	
-Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-loadout
+- Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-loadout
 
-	linuxgamerlife/lgl-system-loadout
-	lionheartp/Hyprland
-	theblackdon/kineticwe
+	- linuxgamerlife/lgl-system-loadout
+	- lionheartp/Hyprland
+	- theblackdon/kineticwe
 		
-**Virtualization**
-
-	Installs VM-Curator and grants user permissions to manage virtual machines.
-	Installs distrobox
+- **Virtualization** - Installs VM-Curator and distrobox and grants user permissions to manage virtual machines.
 	
-**Performance Kernel**
-
-	Enables Cachyos kernel repositories and Installs Kernel, 
-	Makes it default boot entry 
-	Installs addons to manage its schedulers
+- **Performance Kernel** - Enables Cachyos kernel repositories and Installs Kernel and addons to manage its schedulers
+	
 	- bieszczaders/kernel-cachyos
 	- bieszczaders/kernel-cachyos-addons
 	
-**System Tweaks & Optimizations**
-
-	Optimizes DNF performance by increasing maximum parallel downloads to 15.
-	Disables Network Manager wait time by turning off NetworkManager-wait-online.service.
-	Increases shader cache size to 12.
+- **System Tweaks & Optimisations**
+- Optimizes DNF performance by increasing maximum parallel downloads to 15.
+- Disables Network Manager wait time by turning off NetworkManager-wait-online.service.
+- Increases shader cache size to 12.
 	
-**User Applications**
+- **User Applications**
 
 	Core/Essential apps
 	- App store manager > flatpak flathub flatseal 
@@ -98,7 +96,7 @@ Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-lo
 	- faugus/faugus-launcher
 	- imput/helium
 	
-**Audio and video codecs:** Swaps to proprietary versions as Fedora excludes it due to patent restrictions
+- **Audio and video codecs:** Swaps to proprietary versions as Fedora excludes it due to patent restrictions
 
 	Audio: Swaps ffmpeg-free for full ffmpeg
 
@@ -106,7 +104,7 @@ Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-lo
 	- Swaps mesa-va-drivers and mesa-vulkan-drivers with their freeworld variants.
 	- GStreamer plugins (good, bad-free, bad-freeworld, ugly, ugly-free, openh264, libav)
 
-**Terminal UI Customization**
+- **Terminal UI Customization**
 
 	Choice to install zsh or fish shell 
 	Choice to install starship gruvbox theme for selected shell
