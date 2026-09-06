@@ -76,6 +76,13 @@ Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-lo
 	- For auto mounting external drives > kde partitionmanager
 	- Other apps > fastfetch rsync duf btop htop distroshelf
    	- Kwallet autologin > pam-kwallet
+
+	Text editing apps
+	- Basic writer/ script editor > Kate
+	- Spreadsheet editor > libreoffice calc
+	- Powerpoint > libreoffice-impress
+	- PDF sign/reader/editor > libreoffice-draw
+	- Word processor > libreoffice-writer
 	
 	Gaming apps
 	- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact
