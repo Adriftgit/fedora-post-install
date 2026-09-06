@@ -102,9 +102,9 @@ if [ "$SKIP_UPDATE" = false ]; then
 fi
 
 # =========================================================================
-# STAGE 2 – Base Packages and optimisations
+# STAGE 2 – Base Packages and dnf optimisations
 # =========================================================================
-echo -e "\n▶ Stage 2: Base Packages and optimisations"
+echo -e "\n▶ Stage 2: Base Packages and dnf optimisations"
 echo -e "\n▶ DNF and Network optimisations"
 if [ "$SKIP_WIFI" = false ]; then
     if ask_yes_no "Install wifi plugin (Does not come preinstalled with Fedora headless version)?"; then
