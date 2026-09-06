@@ -425,7 +425,7 @@ if [ "$SKIP_APPS" = false ]; then
         fi
 
         # --------- Group 3: Text editing Apps ---------
-         echo -e "\n  Group 2: Text editing Apps"
+         echo -e "\n  Group 3: Text editing Apps"
  
         if ask_yes_no "  Install Kate (zed alternative for editing scripts)?"; then
             sudo dnf install -y --skip-unavailable kate || warn "kate install failed"
@@ -448,7 +448,7 @@ if [ "$SKIP_APPS" = false ]; then
         fi
 
         # --------- Group 4: Gaming Apps ---------
-        echo -e "\n  Group 3: Gaming Apps"
+        echo -e "\n  Group 4: Gaming Apps"
 
         if ask_yes_no "  Install Steam?"; then
             sudo dnf install -y --skip-unavailable steam || warn "Steam install failed"
@@ -467,7 +467,7 @@ if [ "$SKIP_APPS" = false ]; then
         fi
 
         # --------- Group 5: Flatpak Apps ---------
-        echo -e "\n  Group 4: Flatpak Apps"
+        echo -e "\n  Group 5: Flatpak Apps"
         if [ "$FLATPAK_AVAILABLE" = false ]; then
             echo "  [SKIP] Flatpak apps skipped because Flatpak is not available."
         else
@@ -513,7 +513,7 @@ if [ "$SKIP_APPS" = false ]; then
         fi
 
         # --------- Group 6: Apps Requiring custom Repos ---------
-        echo -e "\n  Group 5: Apps requiring custom repos"
+        echo -e "\n  Group 6: Apps requiring custom repos"
         if ask_yes_no "  Install yazi (TUI file manager)?"; then
             if ! is_installed_dnf "yazi"; then
                 if enable_copr_if_needed "lihaohong/yazi"; then
