@@ -189,9 +189,9 @@ else
 fi
 
 # =========================================================================
-# STAGE 3 – Desktop Environment shell and login manager setup
+# STAGE 4 – Desktop Environment shell and login manager setup
 # =========================================================================
-echo -e "\n▶ Stage 3: Desktop Environment Setup"
+echo -e "\n▶ Stage 4: Desktop Environment Setup"
 if [ "$SKIP_DE" = false ]; then
     if ask_yes_no "Set up Desktop Environment (Noctalia & kineticwe)?"; then
         if ! is_installed_dnf "kineticwe" || ! is_installed_dnf "noctalia-git"; then
