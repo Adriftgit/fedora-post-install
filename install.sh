@@ -102,9 +102,75 @@ if [ "$SKIP_UPDATE" = false ]; then
 fi
 
 # =========================================================================
-# STAGE 2 – RPM Fusion Repos
+# STAGE 2 – Base Packages and optimisations
 # =========================================================================
-echo -e "\n▶ Stage 2: RPM Fusion Repos"
+echo -e "\n▶ Stage 2: Base Packages and optimisations"
+echo -e "\n▶ DNF and Network optimisations"
+if [ "$SKIP_WIFI" = false ]; then
+    if ask_yes_no "Install wifi plugin (Does not come preinstalled with Fedora headless version)?"; then
+        sudo dnf install -y NetworkManager-wifi wpa_supplicant || warn "Wi-Fi plugin installation failed"
+        sudo systemctl restart NetworkManager || warn "Failed to restart NetworkManager service"
+        echo "Wi-Fi plugin installed."
+    else
+        echo "[SKIP] Wi-Fi plugin installation"
+    fi
+else
+    echo "[SKIP] Wi-Fi plugin (--skip-wifi flag)"
+fi
+
+if [ "$SKIP_DNF" = false ]; then
+    if ask_yes_no "Apply DNF optimisations?"; then
+        sudo dnf install -y dnf5-plugins || warn "DNF optimisations failed"
+        sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
+    else
+        echo "[SKIP] DNF Optimisations Installation"
+    fi
+else
+    echo "[SKIP] DNF optimisations (--skip-dnf flag)"
+fi
+
+if [ "$SKIP_WAIT" = false ]; then
+    if ask_yes_no "Disable Network Manager Wait?"; then
+        sudo systemctl disable NetworkManager-wait-online.service || warn "Failed to disable service"
+        echo "Network Manager wait service disabled."
+    else
+        echo "[SKIP] Disable Network Manager Wait"
+    fi
+else
+    echo "[SKIP] Disable Network Manager Wait (--skip-wait flag)"
+fi
+
+echo -e "\n▶ Audio and video drivers/Packages (For proprietary drivers and codecs not installed on base Fedora)"
+if [ "$SKIP_CODEC" = false ]; then
+    if ask_yes_no "Swap ffmpeg codecs?"; then
+        sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y || warn "ffmpeg swap failed"
+    fi
+
+    if ask_yes_no "Install GStreamer media plugins? "; then
+        sudo dnf install -y \
+            libva-utils \
+            noopenh264 \
+            mozilla-openh264 \
+            gstreamer1-plugin-openh264 \
+            gstreamer1-plugin-libav \
+            gstreamer1-plugins-bad-freeworld \
+            gstreamer1-plugins-ugly || warn "Gstreamer plugin install failed"
+    fi
+
+    if ask_yes_no "Install Mesa and Vulkan drivers? "; then
+        sudo dnf swap -y mesa-va-drivers.i686 mesa-va-drivers-freeworld.i686 || warn "Mesa i686 swap failed (may not be installed)"
+        sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
+        sudo dnf install -y mesa-dri-drivers mesa-libGL mesa-libEGL || warn "Mesa driver install failed"
+        sudo dnf install -y mesa-vulkan-drivers-freeworld || warn "Vulkan driver install failed"
+        sudo dnf install -y vulkan-loader || warn "Vulkan loader install failed"
+    fi
+else
+    echo "[SKIP] Video and audio codecs (--skip-codec flag)"
+fi
+# =========================================================================
+# STAGE 3 – RPM Fusion Repos
+# =========================================================================
+echo -e "\n▶ Stage 3: RPM Fusion Repos"
 if [ "$SKIP_RPM" = false ]; then
     if ask_yes_no "Enable RPM Fusion (free & non‑free) repositories?"; then
         echo "Checking RPM Fusion repos..."
@@ -146,73 +212,6 @@ if [ "$SKIP_DE" = false ]; then
     fi
 else
     echo "[SKIP] Desktop Environment (--skip-de flag)"
-fi
-
-# =========================================================================
-# STAGE 4 – Base Packages and optimisations
-# =========================================================================
-echo -e "\n▶ Stage 4: Base Packages and optimisations"
-echo -e "\n▶ DNF and Network optimisations"
-if [ "$SKIP_DNF" = false ]; then
-    if ask_yes_no "Apply DNF optimisations?"; then
-        sudo dnf install -y dnf-plugins-core || warn "DNF optimisations failed"
-        sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
-    else
-        echo "[SKIP] DNF Optimisations Installation"
-    fi
-else
-    echo "[SKIP] DNF optimisations (--skip-dnf flag)"
-fi
-
-if [ "$SKIP_WAIT" = false ]; then
-    if ask_yes_no "Disable Network Manager Wait?"; then
-        sudo systemctl disable NetworkManager-wait-online.service || warn "Failed to disable service"
-        echo "Network Manager wait service disabled."
-    else
-        echo "[SKIP] Disable Network Manager Wait"
-    fi
-else
-    echo "[SKIP] Disable Network Manager Wait (--skip-wait flag)"
-fi
-
-if [ "$SKIP_WIFI" = false ]; then
-    if ask_yes_no "Install wifi plugin (Does not come preinstalled with Fedora headless version)?"; then
-        sudo dnf install -y NetworkManager-wifi wpa_supplicant || warn "Wi-Fi plugin installation failed"
-        sudo systemctl restart NetworkManager || warn "Failed to restart NetworkManager service"
-        echo "Wi-Fi plugin installed."
-    else
-        echo "[SKIP] Wi-Fi plugin installation"
-    fi
-else
-    echo "[SKIP] Wi-Fi plugin (--skip-wifi flag)"
-fi
-
-echo -e "\n▶ Audio and video drivers/Packages (For proprietary drivers and codecs not installed on base Fedora)"
-if [ "$SKIP_CODEC" = false ]; then
-    if ask_yes_no "Swap ffmpeg codecs?"; then
-        sudo dnf swap ffmpeg-free ffmpeg --allowerasing -y || warn "ffmpeg swap failed"
-    fi
-
-    if ask_yes_no "Install GStreamer media plugins? "; then
-        sudo dnf install -y \
-            libva-utils \
-            noopenh264 \
-            mozilla-openh264 \
-            gstreamer1-plugin-openh264 \
-            gstreamer1-plugin-libav \
-            gstreamer1-plugins-bad-freeworld \
-            gstreamer1-plugins-ugly || warn "Gstreamer plugin install failed"
-    fi
-
-    if ask_yes_no "Install Mesa and Vulkan drivers? "; then
-        sudo dnf swap -y mesa-va-drivers.i686 mesa-va-drivers-freeworld.i686 || warn "Mesa i686 swap failed (may not be installed)"
-        sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
-        sudo dnf install -y mesa-dri-drivers mesa-libGL mesa-libEGL || warn "Mesa driver install failed"
-        sudo dnf install -y mesa-vulkan-drivers-freeworld || warn "Vulkan driver install failed"
-        sudo dnf install -y vulkan-loader || warn "Vulkan loader install failed"
-    fi
-else
-    echo "[SKIP] Video and audio codecs (--skip-codec flag)"
 fi
 
 # =========================================================================
