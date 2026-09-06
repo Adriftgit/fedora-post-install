@@ -430,15 +430,20 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install Kate (zed alternative for editing scripts)?"; then
             sudo dnf install -y --skip-unavailable kate || warn "kate install failed"
         fi
+ 
+        if ask_yes_no "  Install libreoffice-writer (Word processor)?"; then
+            sudo dnf install -y --skip-unavailable libreoffice-writer || warn "libreoffice-writer install failed"
+        fi
         
         if ask_yes_no "  Install libreoffice-calc (sheets) ?"; then
             sudo dnf install -y --skip-unavailable libreoffice-calc || warn "libreoffice-calc install failed"
         fi
+        
         if ask_yes_no "  Install libreoffice-impress (power point)?"; then
             sudo dnf install -y --skip-unavailable libreoffice-impress || warn "libreoffice-impress install failed"
         fi
         
-        if ask_yes_no "  Install libreoffice-draw (PDF sign/reader/editor )?"; then
+        if ask_yes_no "  Install libreoffice-draw (PDF sign/reader/editor)?"; then
             sudo dnf install -y --skip-unavailable libreoffice-draw || warn "libreoffice-draw install failed"
         fi
 
