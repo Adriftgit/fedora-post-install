@@ -103,7 +103,8 @@ Run using
 	
 	- **Audio and video codecs:** Swaps to proprietary versions as Fedora excludes it due to patent restrictions
 
-		- For Audio: Swaps ffmpeg-free for full ffmpeg
+		- For Audio:
+  			- Swaps ffmpeg-free for full ffmpeg
 
 		- For Video:
 			- Swaps mesa-va-drivers and mesa-vulkan-drivers with their freeworld variants.
