@@ -31,6 +31,7 @@ SKIP_APPS=false
 SKIP_SHADER=false
 SKIP_SHELL=false
 SKIP_WAIT=false
+SKIP_WIFI=false
 SKIP_CODEC=false
 
 for arg in "$@"; do
@@ -46,6 +47,7 @@ for arg in "$@"; do
         --skip-shader) SKIP_SHADER=true ;;
         --skip-shell) SKIP_SHELL=true ;;
         --skip-wait)  SKIP_WAIT=true ;;
+        --skip-wifi)  SKIP_WIFI=true ;; 
         --skip-codec)  SKIP_CODEC=true ;;
         *) echo "Unknown option: $arg" >&2; exit 1 ;;
     esac
@@ -68,8 +70,12 @@ error_exit() {
 enable_copr_if_needed() {
     local copr_repo="$1"
     if ! sudo dnf copr list 2>/dev/null | grep -qF "$copr_repo"; then
-        sudo dnf copr enable -y "$copr_repo" || warn "Failed to enable COPR: $copr_repo"
+        if ! sudo dnf copr enable -y "$copr_repo"; then
+            warn "Failed to enable COPR: $copr_repo"
+            return 1
+        fi
     fi
+    return 0
 }
 
 ask_yes_no() {
@@ -180,6 +186,18 @@ else
     echo "[SKIP] Disable Network Manager Wait (--skip-wait flag)"
 fi
 
+if [ "$SKIP_WIFI" = false ]; then
+    if ask_yes_no "Install wifi plugin (Does not come preinstalled with Fedora headless version)?"; then
+        sudo dnf install -y NetworkManager-wifi wpa_supplicant || warn "Wi-Fi plugin installation failed"
+        sudo systemctl restart NetworkManager || warn "Failed to restart NetworkManager service"
+        echo "Wi-Fi plugin installed."
+    else
+        echo "[SKIP] Wi-Fi plugin installation"
+    fi
+else
+    echo "[SKIP] Wi-Fi plugin (--skip-wifi flag)"
+fi
+
 echo -e "\n▶ Audio and video drivers/Packages (For properitory drivers and codecs not installed on base Fedora)"
 if [ "$SKIP_CODEC" = false ]; then
     if ask_yes_no "Swap ffmpeg codecs?"; then
@@ -198,8 +216,8 @@ if [ "$SKIP_CODEC" = false ]; then
     fi
 
     if ask_yes_no "Install Mesa and Vulkan drivers? "; then
-        sudo dnf swap mesa-va-drivers.i686 mesa-va-drivers-freeworld.i686 || warn "Mesa swap failed"
-        sudo dnf swap mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
+        sudo dnf swap -y mesa-va-drivers.i686 mesa-va-drivers-freeworld.i686 || warn "Mesa swap failed"
+        sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld || warn "Mesa swap failed"
         sudo dnf install -y mesa-dri-drivers mesa-libGL mesa-libEGL || warn "Mesa driver install failed"
         sudo dnf install -y mesa-vulkan-drivers-freeworld || warn "Vulkan driver install failed"
         sudo dnf install -y vulkan-loader || warn "Vulkan loader install failed"
@@ -323,6 +341,10 @@ if [ "$SKIP_APPS" = false ]; then
             sudo dnf install -y --skip-unavailable dolphin unrar unzip ark || warn "Dolphin install failed"
         fi
 
+        if ask_yes_no "  Install Nautilus (Dolphin alternative)?"; then
+            sudo dnf install -y --skip-unavailable nautilus file-roller-nautilus || warn "Nautilus install failed"
+        fi
+        
         if ask_yes_no "  Install Kitty (terminal)?"; then
             sudo dnf install -y --skip-unavailable kitty || warn "Kitty install failed"
             kwriteconfig6 --file kdeglobals --group General --key TerminalService kitty.desktop || warn "Unable to integrate kitty in Dolhpin"
@@ -502,7 +524,7 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install lgl-system-loadout (Alternate GUI app for setting up Fedora)?"; then
             if ! is_installed_dnf "lgl-system-loadout"; then
                 if enable_copr_if_needed "linuxgamerlife/lgl-system-loadout"; then
-                    sudo dnf install -y --skip-unavailable lgl-system-loadout
+                    sudo dnf install -y --skip-unavailable lgl-system-loadout || warn "lgl-system-loadout install failed"
                 fi
             else
                 echo "  [SKIP] lgl-system-loadout (already installed)"
@@ -512,8 +534,8 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install and set up LACT (GPU overclocking tool)?"; then
             if ! is_installed_dnf "lact"; then
                 if enable_copr_if_needed "ilyaz/LACT"; then
-                    sudo dnf install -y lact
-                    sudo systemctl enable --now lactd || warn "lact install failed"
+                    sudo dnf install -y lact || warn "lact install failed"
+                    sudo systemctl enable --now lactd
                 fi
             else
                 echo "  [SKIP] lact (already installed)"
