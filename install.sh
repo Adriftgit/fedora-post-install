@@ -460,19 +460,24 @@ if [ "$SKIP_APPS" = false ]; then
         if [ "$FLATPAK_AVAILABLE" = false ]; then
             echo "  [SKIP] Flatpak apps skipped because Flatpak is not available."
         else
-            if ask_yes_no "  Install Zed editor (text and code editor)?"; then
-                sudo flatpak install -y flathub dev.zed.Zed || warn "Zed install failed"
-            fi
-
+            
             if ask_yes_no "  Install Bazaar (app store)?"; then
                 sudo flatpak install -y flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
             fi
 
-            if ask_yes_no "  Install Dejadup (For user files backup)?"; then
+            if ask_yes_no "  Install Zed editor (text and code editor)?"; then
+                sudo flatpak install -y flathub dev.zed.Zed || warn "Zed install failed"
+            fi
+
+            if ask_yes_no "  Install Obsidian (online notes sync app)?"; then
+                sudo flatpak install -y flathub md.obsidian.Obsidian || warn "Obsidian install failed"
+            fi
+
+            if ask_yes_no "  Install Dejadup (User file backup app)?"; then
                 sudo flatpak install -y flathub org.gnome.DejaDup || warn "Dejadup install failed"
             fi
 
-            if ask_yes_no "  Install Rustdesk (Remote ddesktop access)?"; then
+            if ask_yes_no "  Install Rustdesk (Remote ddesktop app)?"; then
                 sudo flatpak install -y flathub com.rustdesk.RustDesk || warn "Rustdesk install failed"
             fi
 
