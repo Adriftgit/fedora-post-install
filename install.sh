@@ -156,7 +156,7 @@ echo -e "\n▶ DNF and Network optimisations"
 if [ "$SKIP_DNF" = false ]; then
     if ask_yes_no "Apply DNF optimisations?"; then
         sudo dnf install -y dnf-plugins-core || warn "DNF optimisations failed"
-        sudo dnf config-manager --setopt=max_parallel_downloads=15 --save || warn "DNF optimisations failed"
+        sudo dnf config-manager setopt max_parallel_downloads=15 || warn "DNF optimisations failed"
     else
         echo "[SKIP] DNF Optimisations Installation"
     fi
