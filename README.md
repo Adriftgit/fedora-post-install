@@ -56,7 +56,7 @@ Run using
 - **User Applications**
 
 	Core/Essential apps
-	- App store manager > flatpak flathub flatseal 
+	- App store manager > flatpak flathub flatseal warehouse
 	- App store > bazaar 
 	- Browser > Brave-origin-nightly 
 	- File manager > Dolphin or Nautilus
