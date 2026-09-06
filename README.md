@@ -98,11 +98,11 @@ Run using
 	
 - **Audio and video codecs:** Swaps to proprietary versions as Fedora excludes it due to patent restrictions
 
-	Audio: Swaps ffmpeg-free for full ffmpeg
+	- For Audio: Swaps ffmpeg-free for full ffmpeg
 
-	Video & Graphics:
-	- Swaps mesa-va-drivers and mesa-vulkan-drivers with their freeworld variants.
-	- GStreamer plugins (good, bad-free, bad-freeworld, ugly, ugly-free, openh264, libav)
+	- For Video:
+		- Swaps mesa-va-drivers and mesa-vulkan-drivers with their freeworld variants.
+		- GStreamer plugins (good, bad-free, bad-freeworld, ugly, ugly-free, openh264, libav)
 
 - **Terminal UI Customization**
 
