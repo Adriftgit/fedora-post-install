@@ -424,7 +424,25 @@ if [ "$SKIP_APPS" = false ]; then
             sudo dnf install -y --skip-unavailable pam-kwallet || warn "pam-kwallet install failed"
         fi
 
-        # --------- Group 3: Gaming Apps ---------
+        # --------- Group 3: Text editing Apps ---------
+         echo -e "\n  Group 2: Text editing Apps"
+ 
+        if ask_yes_no "  Install Kate (zed alternative for editing scripts)?"; then
+            sudo dnf install -y --skip-unavailable kate || warn "kate install failed"
+        fi
+        
+        if ask_yes_no "  Install libreoffice-calc (sheets) ?"; then
+            sudo dnf install -y --skip-unavailable libreoffice-calc || warn "libreoffice-calc install failed"
+        fi
+        if ask_yes_no "  Install libreoffice-impress (power point)?"; then
+            sudo dnf install -y --skip-unavailable libreoffice-impress || warn "libreoffice-impress install failed"
+        fi
+        
+        if ask_yes_no "  Install libreoffice-draw (PDF sign/reader/editor )?"; then
+            sudo dnf install -y --skip-unavailable libreoffice-draw || warn "libreoffice-draw install failed"
+        fi
+
+        # --------- Group 4: Gaming Apps ---------
         echo -e "\n  Group 3: Gaming Apps"
 
         if ask_yes_no "  Install Steam?"; then
@@ -443,7 +461,7 @@ if [ "$SKIP_APPS" = false ]; then
             sudo dnf install -y --skip-unavailable protontricks || warn "Protontricks install failed"
         fi
 
-        # --------- Group 4: Flatpak Apps ---------
+        # --------- Group 5: Flatpak Apps ---------
         echo -e "\n  Group 4: Flatpak Apps"
         if [ "$FLATPAK_AVAILABLE" = false ]; then
             echo "  [SKIP] Flatpak apps skipped because Flatpak is not available."
@@ -487,9 +505,9 @@ if [ "$SKIP_APPS" = false ]; then
             if ask_yes_no "  Install GOverlay (GUI tool for mangohud)?"; then
                 sudo flatpak install -y flathub io.github.benjamimgois.goverlay || warn "GOverlay install failed"
             fi
-        fi # Added missing fi here
+        fi
 
-        # --------- Group 5: Apps Requiring custom Repos ---------
+        # --------- Group 6: Apps Requiring custom Repos ---------
         echo -e "\n  Group 5: Apps requiring custom repos"
         if ask_yes_no "  Install yazi (TUI file manager)?"; then
             if ! is_installed_dnf "yazi"; then
