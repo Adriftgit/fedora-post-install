@@ -88,7 +88,7 @@ Run using
    		- Online notes sync > Obsidian
    	   
 	- Gaming apps
-		- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact
+		- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact Sunshine and Moonlight
 
 	- Multimedia and graphics apps
 		- kdenlive krita audacity
