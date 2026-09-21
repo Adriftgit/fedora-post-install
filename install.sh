@@ -425,7 +425,6 @@ if [ "$SKIP_APPS" = false ]; then
                 fi
             fi
 
-            # Flatpak‑only utility apps
             if [ "$FLATPAK_AVAILABLE" = false ]; then
                 echo "    [SKIP] Bazaar, DejaDup, and Warehouse require Flatpak (not available)."
             else
@@ -531,7 +530,6 @@ if [ "$SKIP_APPS" = false ]; then
                 sudo dnf install -y --skip-unavailable libreoffice-draw || warn "libreoffice-draw install failed"
             fi
 
-            # Flatpak‑only text editors
             if [ "$FLATPAK_AVAILABLE" = false ]; then
                 echo "    [SKIP] Zed editor and Obsidian require Flatpak (not available)."
             else
@@ -586,7 +584,6 @@ if [ "$SKIP_APPS" = false ]; then
                 fi
             fi
 
-            # Flatpak‑only gaming tools
             if [ "$FLATPAK_AVAILABLE" = false ]; then
                 echo "    [SKIP] ProtonPlus, GOverlay, and ProtonUp-Qt require Flatpak (not available)."
             else
@@ -632,7 +629,6 @@ if [ "$SKIP_APPS" = false ]; then
         if ask_yes_no "  Install apps from Group 7: Remote Desktop and File Sharing (Sunshine, Moonlight, Localsend, Rustdesk) ?"; then
             echo -e "\n  Group 7: Remote Desktop and File Sharing"
 
-            # Sunshine (Game streaming backend)
             if ask_yes_no "    Install Sunshine (Game streaming backend)?"; then
                 if ! is_installed_dnf "Sunshine"; then
                     sudo dnf copr enable -y lizardbyte/stable || warn "Failed to enable lizardbyte/stable copr"
@@ -648,7 +644,6 @@ if [ "$SKIP_APPS" = false ]; then
                 fi
             fi
 
-            # Flatpak‑only remote desktop / file sharing apps
             if [ "$FLATPAK_AVAILABLE" = false ]; then
                 echo "    [SKIP] Moonlight, RustDesk, and LocalSend require Flatpak (not available)."
             else
