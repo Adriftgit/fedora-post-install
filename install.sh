@@ -356,10 +356,6 @@ if [ "$SKIP_APPS" = false ]; then
             kwriteconfig6 --file kdeglobals --group General --key TerminalService kitty.desktop || warn "Unable to integrate kitty in Dolphin"
         fi
 
-        if ask_yes_no "    Install MPV (media player)?"; then
-            sudo dnf install -y --skip-unavailable mpv || warn "MPV install failed"
-        fi
-
         if ask_yes_no "    Install Timeshift (System Restore tool)?"; then
             sudo dnf install -y --skip-unavailable timeshift || warn "Timeshift install failed"
         fi
@@ -372,7 +368,6 @@ if [ "$SKIP_APPS" = false ]; then
             sudo dnf install -y --skip-unavailable spectacle || warn "Spectacle install failed"
         fi
 
-        # Flatpak‑only utility apps
         if [ "$FLATPAK_AVAILABLE" = false ]; then
             echo "    [SKIP] Cine installation (Flatpak not available)."
             else
