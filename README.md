@@ -123,4 +123,6 @@ Run using
 	- Enable the polkit agent
  -  Use firefox with betterfox - Peskyfox user.js file for optimised clean, distraction-free browsing.
  -  Steam themeing with millennium material theme and use noctalia to apply it.
+ -  In KDE System Settings go to search section:
+ 	- Disable File Search, Plasma Search, and KRunner History.
  -  If starting the desktop from terminal use `start-kineticwe' command once logged in. 
