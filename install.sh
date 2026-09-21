@@ -325,10 +325,23 @@ echo -e "\n▶ Stage 7: Applications"
 if [ "$SKIP_APPS" = false ]; then
     if ask_yes_no "Install Applications?"; then
 
-        FLATPAK_AVAILABLE=false
+    FLATPAK_AVAILABLE=false
 
         # --------- Group 1: Core Apps (cannot be skipped) ---------
         echo -e "\n  Group 1: Core Apps (Dolphin, Nautilus, Kitty, MPV, Timeshift, Loupe, Spectacle, Flatpak, Flathub)"
+
+        if ask_yes_no "    Install Flatpak (and configure Flathub & Flatseal)?"; then
+            sudo dnf install flatpak -y || warn "Flatpak install failed"
+            sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || warn "Flathub install failed"
+            sudo flatpak install -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
+            FLATPAK_AVAILABLE=true
+        else
+            if command -v flatpak &>/dev/null; then
+                FLATPAK_AVAILABLE=true
+            else
+                echo "    [SKIP] Flatpak setup"
+            fi
+        fi
 
         if ask_yes_no "    Install Dolphin (file manager)?"; then
             sudo dnf install -y --skip-unavailable dolphin unrar unzip ark || warn "Dolphin install failed"
@@ -359,16 +372,12 @@ if [ "$SKIP_APPS" = false ]; then
             sudo dnf install -y --skip-unavailable spectacle || warn "Spectacle install failed"
         fi
 
-        if ask_yes_no "    Install Flatpak (and configure Flathub & Flatseal)?"; then
-            sudo dnf install flatpak -y || warn "Flatpak install failed"
-            sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || warn "Flathub install failed"
-            sudo flatpak install -y flathub com.github.tchx84.Flatseal || warn "Flatseal install failed"
-            FLATPAK_AVAILABLE=true
-        else
-            if command -v flatpak &>/dev/null; then
-                FLATPAK_AVAILABLE=true
+        # Flatpak‑only utility apps
+        if [ "$FLATPAK_AVAILABLE" = false ]; then
+            echo "    [SKIP] Cine installation (Flatpak not available)."
             else
-                echo "    [SKIP] Flatpak setup"
+            if ask_yes_no "    Install cine (MPV Media player with gui)?"; then
+                    sudo flatpak install -y io.github.diegopvlk.Cine || warn "Cine install failed"
             fi
         fi
 
