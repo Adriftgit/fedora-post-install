@@ -121,6 +121,6 @@ Run using
 	- Open Noctalia settings
 	- Search for security
 	- Enable the polkit agent
- -  Can use firefox with betterfox - Peskyfox user.js file for optimised clean, distraction-free browsing.
- -  Can theme steam with millennium material theme and use noctalia to apply it.
+ -  Use firefox with betterfox - Peskyfox user.js file for optimised clean, distraction-free browsing.
+ -  Steam themeing with millennium material theme and use noctalia to apply it.
  -  If starting the desktop from terminal use `start-kineticwe' command once logged in. 
