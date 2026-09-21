@@ -58,14 +58,14 @@ Run using
 	- Core/Essential apps
 		- App store manager > flatpak flathub flatseal warehouse
 		- App store > bazaar 
-		- Browser > Brave-origin-nightly 
 		- File manager > Dolphin or Nautilus
 		- Zip file manager > Ark
 		- Terminal > Kitty
 		- DejaDup > User file backup/restore tool
 		- Timeshift > System restore tool
-			
 		- Spectacle > Screen capture tool
+  	- Choice of Browser (can install multiple too)
+    	- Brave origin, Vivaldi, firefox, Helium 
 
 	- Utility apps
 		- Media player > mpv
