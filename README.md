@@ -66,7 +66,7 @@ Run using
     	- Brave origin, Vivaldi, firefox, Helium 
 
 	- Utility apps
-		- Media player > mpv
+		- Media player > cine (mpv gui player)
 		- Image viewer > loupe
 		- Calculator > gnome-calculator 
 		- File sharing > qbittorrent 
