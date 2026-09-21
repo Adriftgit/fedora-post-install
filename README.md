@@ -1,4 +1,3 @@
-
 **Fedora Post-Install Script:**
 
 - My custom, automated post-installation script for Fedora 44 headless install. Everything in this script is modular and optional, designed to setup fully configured desktop and gaming environment. 
@@ -122,12 +121,3 @@ Run using
 	- Open Noctalia settings
 	- Search for security
 	- Enable the polkit agent
-- KDE System Settings Tweaks (Disable search services running in background as not used by noctalia)
-	- Go to search and disable File Search
-	- Disable Plasma Search
-	- Turn off History in KRunner
-
-- KDE Wallet Setup (for pam-kwallet auto-unlock):"
-	- When an app asks to create a wallet"
-	- Choose standard (Blowfish) encryption"
-	- And use your exact login password."
