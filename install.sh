@@ -796,20 +796,5 @@ else
     echo "[SKIP] DNF cleanup"
 fi
 
-echo ""
-echo "MANUAL CONFIGURATIONS REQUIRED"
-echo "---------------------------------------------------"
-echo " 1. If starting the desktop from TTY, use cmd:"
-echo "    - start-kineticwe"
-echo " 2. For Noctalia admin prompt:"
-echo "    - enable Polkit in Security settings."
-echo " 3. Update grub:"
-echo "    - sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
-echo " 4. In KDE System Settings go to search section:"
-echo "    - Disable File Search, Plasma Search, and KRunner History."
-echo " 5. For Sunshine (game streaming) to capture input:"
-echo "    - Log out or reboot after installation for video & input groups to apply."
-echo "==================================================="
-
 echo -e "\nSystem changes require a reboot to take effect."
 exit 0
