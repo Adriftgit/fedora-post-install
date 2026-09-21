@@ -34,13 +34,12 @@ Run using
 
 - **DNF Cleanup** - Clears leftover packages and DNF cache post install
 	
-- Desktop Shell & Environment - Installs Kineticwe with Noctalia and lgl-system-loadout
+- Desktop Shell & Environment - Installs Kineticwe with Noctalia
 
-	- linuxgamerlife/lgl-system-loadout
 	- lionheartp/Hyprland
 	- theblackdon/kineticwe
 		
-- **Virtualization** - Installs VM-Curator and distrobox and grants user permissions to manage virtual machines.
+- **Virtualization** - Installs virt-manager, VM-Curator and distrobox and grants user permissions to manage virtual machines.
 	
 - **Performance Kernel** - Enables Cachyos kernel repositories and Installs Kernel and addons to manage its schedulers
 	
@@ -63,7 +62,7 @@ Run using
 		- DejaDup > User file backup/restore tool
 		- Timeshift > System restore tool
 		- Spectacle > Screen capture tool
-  	- Choice of Browser (can install multiple too)
+  	- Choice of Browser (can install multiple)
     	- Brave origin, Vivaldi, firefox, Helium 
 
 	- Utility apps
@@ -87,7 +86,8 @@ Run using
    		- Online notes sync > Obsidian
    	   
 	- Gaming apps
-		- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact Sunshine and Moonlight
+		- Steam faugus-launcher mangohud gamescope protonplus protontricks goverlay lact
+        - Sunshine and moonlight install with opening ports and setting up user service 
 
 	- Multimedia and graphics apps
 		- kdenlive krita audacity
@@ -121,3 +121,6 @@ Run using
 	- Open Noctalia settings
 	- Search for security
 	- Enable the polkit agent
+ -  Can use firefox with betterfox - Peskyfox user.js file for optimised clean, distraction-free browsing.
+ -  Can theme steam with millennium material theme and use noctalia to apply it.
+ -  If starting the desktop from terminal use `start-kineticwe' command once logged in. 
