@@ -102,9 +102,30 @@ if [ "$SKIP_UPDATE" = false ]; then
 fi
 
 # =========================================================================
-# STAGE 2 – Base Packages and dnf optimisations
+# STAGE 2 – RPM Fusion Repos
 # =========================================================================
-echo -e "\n▶ Stage 2: Base Packages and dnf optimisations"
+echo -e "\n▶ Stage 2: RPM Fusion Repos"
+if [ "$SKIP_RPM" = false ]; then
+    if ask_yes_no "Enable RPM Fusion (free & non‑free) repositories?"; then
+        echo "Checking RPM Fusion repos..."
+        if ! is_installed_dnf "rpmfusion-free-release" || ! is_installed_dnf "rpmfusion-nonfree-release"; then
+            echo "Enabling RPM Fusion Free..."
+            sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm || warn "RPM Repo installation failed"
+            sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm || warn "RPM Non free Repo installation failed"
+        else
+            echo "[SKIP] RPM Fusion Free and Non‑Free is already installed."
+        fi
+    else
+        echo "[SKIP] RPM Fusion"
+    fi
+else
+    echo "[SKIP] RPM Fusion (flag)"
+fi
+
+# =========================================================================
+# STAGE 3 – Base Packages and dnf optimisations
+# =========================================================================
+echo -e "\n▶ Stage 3: Base Packages and dnf optimisations"
 echo -e "\n▶ DNF and Network optimisations"
 if [ "$SKIP_WIFI" = false ]; then
     if ask_yes_no "Install wifi plugin (Does not come preinstalled with Fedora headless version)?"; then
@@ -166,27 +187,6 @@ if [ "$SKIP_CODEC" = false ]; then
     fi
 else
     echo "[SKIP] Video and audio codecs (--skip-codec flag)"
-fi
-
-# =========================================================================
-# STAGE 3 – RPM Fusion Repos
-# =========================================================================
-echo -e "\n▶ Stage 3: RPM Fusion Repos"
-if [ "$SKIP_RPM" = false ]; then
-    if ask_yes_no "Enable RPM Fusion (free & non‑free) repositories?"; then
-        echo "Checking RPM Fusion repos..."
-        if ! is_installed_dnf "rpmfusion-free-release" || ! is_installed_dnf "rpmfusion-nonfree-release"; then
-            echo "Enabling RPM Fusion Free..."
-            sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm || warn "RPM Repo installation failed"
-            sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm || warn "RPM Non free Repo installation failed"
-        else
-            echo "[SKIP] RPM Fusion Free and Non‑Free is already installed."
-        fi
-    else
-        echo "[SKIP] RPM Fusion"
-    fi
-else
-    echo "[SKIP] RPM Fusion (flag)"
 fi
 
 # =========================================================================
