@@ -511,8 +511,9 @@ if [ "$SKIP_APPS" = false ]; then
                 echo "      2) Vivaldi"
                 echo "      3) Helium"
                 echo "      4) Brave Origin"
-                echo "      5) Done / skip"
-                read -r -p "    Choose a browser to install (1-5): " browser_choice
+                echo "      5) Floorp"
+                echo "      6) Done / skip"
+                read -r -p "    Choose a browser to install (1-6): " browser_choice
                 case "$browser_choice" in
                     1)
                         echo "    Installing Mozilla Firefox..."
@@ -542,11 +543,20 @@ if [ "$SKIP_APPS" = false ]; then
                         sudo dnf install -y --skip-unavailable brave-origin-nightly || warn "Brave-origin install failed"
                         ;;
                     5)
+                        echo "    Installing Floorp Browser..."
+                        if ! is_installed_dnf "floorp"; then
+                            sudo dnf copr enable -y sneexy/floorp || warn "Failed to enable Floorp copr"
+                            sudo dnf install -y floorp || warn "Floorp install failed"
+                        else
+                            echo "    [SKIP] Floorp Browser is already installed."
+                        fi
+                        ;;
+                    6)
                         echo "    Finished browser installation."
                         break
                         ;;
                     *)
-                        echo "    Invalid choice. Please enter 1-5."
+                        echo "    Invalid choice. Please enter 1-6."
                         continue
                         ;;
                 esac
