@@ -325,11 +325,9 @@ echo -e "\n▶ Stage 7: Applications"
 if [ "$SKIP_APPS" = false ]; then
     if ask_yes_no "Install Applications?"; then
 
-    FLATPAK_AVAILABLE=false
+        FLATPAK_AVAILABLE=false
 
-        # --------- Group 1: Core Apps (cannot be skipped) ---------
         echo -e "\n  Core Apps (Kitty, Cine - MPV, Cliamp, Timeshift, Loupe, Spectacle, Flatpak, Flathub)"
-
         if ask_yes_no "    Install Flatpak (and configure Flathub & Flatseal)?"; then
             sudo dnf install flatpak -y || warn "Flatpak install failed"
             if sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo; then
@@ -355,107 +353,302 @@ if [ "$SKIP_APPS" = false ]; then
             fi
         fi
 
-        if ask_yes_no "    Install Kitty (terminal)?"; then
-            sudo dnf install -y --skip-unavailable kitty || warn "Kitty install failed"
-            kwriteconfig6 --file kdeglobals --group General --key TerminalService kitty.desktop || warn "Unable to integrate kitty in Dolphin"
-        fi
+        # Per-group install handlers
+        core_app_install() {
+            case "$1" in
+                1) echo "    Installing Kitty..."
+                   sudo dnf install -y --skip-unavailable kitty || warn "Kitty install failed"
+                   kwriteconfig6 --file kdeglobals --group General --key TerminalService kitty.desktop || warn "Unable to integrate kitty in Dolphin" ;;
+                2) echo "    Installing Alacritty..."
+                   sudo dnf install -y --skip-unavailable alacritty || warn "Alacritty install failed" ;;
+                3) echo "    Installing Timeshift..."
+                   sudo dnf install -y --skip-unavailable timeshift || warn "Timeshift install failed" ;;
+                4) echo "    Installing Loupe..."
+                   sudo dnf install -y --skip-unavailable loupe || warn "Loupe install failed" ;;
+                5) echo "    Installing Spectacle..."
+                   sudo dnf install -y --skip-unavailable spectacle || warn "Spectacle install failed" ;;
+                6) echo "    Installing Cliamp..."
+                   if ! is_installed_dnf "lgl-cliamp"; then
+                       sudo dnf copr enable -y linuxgamerlife/lgl-cliamp || warn "Failed to enable cliamp copr"
+                       sudo dnf install -y lgl-cliamp || warn "cliamp install failed"
+                   else
+                       echo "    [SKIP] Cliamp (already installed)"
+                   fi ;;
+                7) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing Cine..."
+                       sudo flatpak install -y io.github.diegopvlk.Cine || warn "Cine install failed"
+                   else
+                       warn "Cine requires Flatpak (not available)"
+                   fi ;;
+                *) warn "Invalid choice: $1" ;;
+            esac
+        }
 
-        if ask_yes_no "    Install Alacritty (terminal)?"; then
-            sudo dnf install -y --skip-unavailable alacritty || warn "Alacritty install failed"
-        fi
+        utility_app_install() {
+            case "$1" in
+                1) echo "    Installing GNOME Calculator..."
+                   sudo dnf install -y --skip-unavailable gnome-calculator || warn "GNOME Calculator install failed" ;;
+                2) echo "    Installing qBittorrent..."
+                   sudo dnf install -y --skip-unavailable qbittorrent || warn "qBittorrent install failed" ;;
+                3) echo "    Installing KDE Partition Manager..."
+                   sudo dnf install -y --skip-unavailable kde-partitionmanager || warn "KDE Partition Manager install failed" ;;
+                4) echo "    Installing Fastfetch..."
+                   sudo dnf install -y --skip-unavailable fastfetch || warn "Fastfetch install failed" ;;
+                5) echo "    Installing rsync..."
+                   sudo dnf install -y --skip-unavailable rsync || warn "rsync install failed" ;;
+                6) echo "    Installing duf..."
+                   sudo dnf install -y --skip-unavailable duf || warn "duf install failed" ;;
+                7) echo "    Installing btop..."
+                   sudo dnf install -y --skip-unavailable btop || warn "btop install failed" ;;
+                8) echo "    Installing htop..."
+                   sudo dnf install -y --skip-unavailable htop || warn "htop install failed" ;;
+                9) echo "    Installing GNOME Keyring and Seahorse..."
+                   sudo dnf install -y --skip-unavailable gnome-keyring seahorse || warn "GNOME Keyring/Seahorse install failed" ;;
+                10) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                        echo "    Installing Bazaar..."
+                        sudo flatpak install -y flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
+                    else warn "Bazaar requires Flatpak (not available)"; fi ;;
+                11) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                        echo "    Installing Deja Dup..."
+                        sudo flatpak install -y flathub org.gnome.DejaDup || warn "Deja Dup install failed"
+                    else warn "Deja Dup requires Flatpak (not available)"; fi ;;
+                12) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                        echo "    Installing Warehouse..."
+                        sudo flatpak install -y flathub io.github.flattool.Warehouse || warn "Warehouse install failed"
+                    else warn "Warehouse requires Flatpak (not available)"; fi ;;
+                13) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                        echo "    Installing DistroShelf..."
+                        sudo flatpak install -y flathub com.ranfdev.DistroShelf || warn "DistroShelf install failed"
+                    else warn "DistroShelf requires Flatpak (not available)"; fi ;;
+                *) warn "Invalid choice: $1" ;;
+            esac
+        }
 
-        if ask_yes_no "    Install Timeshift (System Restore tool)?"; then
-            sudo dnf install -y --skip-unavailable timeshift || warn "Timeshift install failed"
-        fi
+        file_explorer_install() {
+            case "$1" in
+                1) echo "    Installing Dolphin..."
+                   sudo dnf install -y --skip-unavailable dolphin unrar unzip ark || warn "Dolphin install failed" ;;
+                2) echo "    Installing Nautilus..."
+                   sudo dnf install -y --skip-unavailable nautilus file-roller-nautilus || warn "Nautilus install failed" ;;
+                3) echo "    Installing Double Commander (Qt6)..."
+                   sudo dnf install -y --skip-unavailable doublecmd-qt6 || warn "Double Commander install failed" ;;
+                4) echo "    Installing Yazi (terminal file manager)..."
+                   if ! is_installed_dnf "yazi"; then
+                       sudo dnf copr enable -y lihaohong/yazi || warn "Failed to enable yazi copr"
+                       sudo dnf install -y yazi || warn "yazi install failed"
+                   else
+                       echo "    [SKIP] yazi (already installed)"
+                   fi ;;
+                *) warn "Invalid choice: $1" ;;
+            esac
+        }
 
-        if ask_yes_no "    Install Loupe (image viewer)?"; then
-            sudo dnf install -y --skip-unavailable loupe || warn "Loupe install failed"
-        fi
+        browser_install() {
+            case "$1" in
+                1) echo "    Installing Mozilla Firefox..."
+                   sudo dnf install -y --skip-unavailable firefox || warn "Firefox install failed" ;;
+                2) echo "    Installing Vivaldi..."
+                   if ! is_installed_dnf "vivaldi-stable"; then
+                       sudo dnf config-manager addrepo --from-repofile=https://repo.vivaldi.com/stable/vivaldi-fedora.repo || warn "Vivaldi repo install failed"
+                       sudo dnf install -y --skip-unavailable vivaldi-stable || warn "Vivaldi install failed"
+                   else
+                       echo "    [SKIP] Vivaldi is already installed."
+                   fi ;;
+                3) echo "    Installing Helium Browser..."
+                   if ! is_installed_dnf "helium-bin"; then
+                       sudo dnf copr enable -y imput/helium || warn "Failed to enable helium copr"
+                       sudo dnf install -y helium-bin || warn "Helium install failed"
+                   else
+                       echo "    [SKIP] Helium Browser is already installed."
+                   fi ;;
+                4) echo "    Installing Brave Origin..."
+                   sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo || warn "Brave repo install failed"
+                   sudo dnf install -y --skip-unavailable brave-origin-nightly || warn "Brave-origin install failed" ;;
+                5) echo "    Installing Floorp Browser..."
+                   if ! is_installed_dnf "floorp"; then
+                       sudo dnf copr enable -y sneexy/floorp || warn "Failed to enable Floorp copr"
+                       sudo dnf install -y floorp || warn "Floorp install failed"
+                   else
+                       echo "    [SKIP] Floorp Browser is already installed."
+                   fi ;;
+                *) warn "Invalid choice: $1" ;;
+            esac
+        }
 
-        if ask_yes_no "    Install Spectacle (Screen capture tool)?"; then
-            sudo dnf install -y --skip-unavailable spectacle || warn "Spectacle install failed"
-        fi
+        editing_app_install() {
+            case "$1" in
+                1) echo "    Installing Kate..."
+                   sudo dnf install -y --skip-unavailable kate || warn "kate install failed" ;;
+                2) echo "    Installing LibreOffice Writer..."
+                   sudo dnf install -y --skip-unavailable libreoffice-writer || warn "libreoffice-writer install failed" ;;
+                3) echo "    Installing LibreOffice Calc..."
+                   sudo dnf install -y --skip-unavailable libreoffice-calc || warn "libreoffice-calc install failed" ;;
+                4) echo "    Installing LibreOffice Impress..."
+                   sudo dnf install -y --skip-unavailable libreoffice-impress || warn "libreoffice-impress install failed" ;;
+                5) echo "    Installing LibreOffice Draw..."
+                   sudo dnf install -y --skip-unavailable libreoffice-draw || warn "libreoffice-draw install failed" ;;
+                6) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing Zed..."
+                       sudo flatpak install -y flathub dev.zed.Zed || warn "Zed install failed"
+                   else warn "Zed requires Flatpak (not available)"; fi ;;
+                7) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing Obsidian..."
+                       sudo flatpak install -y flathub md.obsidian.Obsidian || warn "Obsidian install failed"
+                   else warn "Obsidian requires Flatpak (not available)"; fi ;;
+                8) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing Kdenlive..."
+                       sudo flatpak install -y flathub org.kde.kdenlive || warn "kdenlive install failed"
+                   else warn "Kdenlive requires Flatpak (not available)"; fi ;;
+                9) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing Krita..."
+                       sudo flatpak install -y flathub org.kde.krita || warn "Krita install failed"
+                   else warn "Krita requires Flatpak (not available)"; fi ;;
+                10) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                        echo "    Installing Audacity..."
+                        sudo flatpak install -y flathub org.audacityteam.Audacity || warn "audacity install failed"
+                    else warn "Audacity requires Flatpak (not available)"; fi ;;
+                *) warn "Invalid choice: $1" ;;
+            esac
+        }
 
-        if ask_yes_no "    Install Cliamp (Terminal music player)?"; then
-            if ! is_installed_dnf "lgl-cliamp"; then
-                sudo dnf copr enable -y linuxgamerlife/lgl-cliamp || warn "Failed to enable cliamp copr"
-                sudo dnf install -y lgl-cliamp || warn "cliamp install failed"
-            else
-                echo "    [SKIP] Cliamp (already installed)"
-            fi
-        fi
-    
-        if [ "$FLATPAK_AVAILABLE" = false ]; then
-            echo "    [SKIP] Cine installation (Flatpak not available)."
-            else
-            if ask_yes_no "    Install cine (MPV Media player with gui)?"; then
-                    sudo flatpak install -y io.github.diegopvlk.Cine || warn "Cine install failed"
-            fi
-        fi
+        gaming_app_install() {
+            case "$1" in
+                1) echo "    Installing Steam..."
+                   sudo dnf install -y --skip-unavailable steam || warn "Steam install failed" ;;
+                2) echo "    Installing MangoHud..."
+                   sudo dnf install -y --skip-unavailable mangohud || warn "MangoHud install failed" ;;
+                3) echo "    Installing Gamescope..."
+                   sudo dnf install -y --skip-unavailable gamescope || warn "Gamescope install failed" ;;
+                4) echo "    Installing Protontricks..."
+                   sudo dnf install -y --skip-unavailable protontricks || warn "Protontricks install failed" ;;
+                5) echo "    Installing faugus-launcher..."
+                   if ! is_installed_dnf "faugus-launcher"; then
+                       sudo dnf copr enable -y faugus/faugus-launcher || warn "Failed to enable faugus-launcher copr"
+                       sudo dnf install -y faugus-launcher || warn "faugus-launcher install failed"
+                   else
+                       echo "    [SKIP] faugus-launcher (already installed)"
+                   fi ;;
+                6) echo "    Installing and setting up LACT..."
+                   if ! is_installed_dnf "lact"; then
+                       sudo dnf copr enable -y ilyaz/LACT || warn "Failed to enable LACT copr"
+                       sudo dnf install -y lact || warn "lact install failed"
+                       sudo systemctl enable --now lactd || warn "Failed to enable lactd service"
+                   else
+                       echo "    [SKIP] lact (already installed)"
+                   fi ;;
+                7) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing ProtonPlus..."
+                       sudo flatpak install -y flathub com.vysp3r.ProtonPlus || warn "ProtonPlus install failed"
+                   else warn "ProtonPlus requires Flatpak (not available)"; fi ;;
+                8) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing ProtonUp-Qt..."
+                       sudo flatpak install -y flathub net.davidotek.pupgui2 || warn "ProtonUp-Qt install failed"
+                   else warn "ProtonUp-Qt requires Flatpak (not available)"; fi ;;
+                9) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing GOverlay..."
+                       sudo flatpak install -y flathub io.github.benjamimgois.goverlay || warn "GOverlay install failed"
+                   else warn "GOverlay requires Flatpak (not available)"; fi ;;
+                *) warn "Invalid choice: $1" ;;
+            esac
+        }
 
-        # --------- Group 2: Utility Apps ---------
-        if ask_yes_no "  Install Utility Apps (such as Partition and backup managers, system and file monitor/info tools, app store, password manager) ?"; then
+        remote_app_install() {
+            case "$1" in
+                1) echo "    Installing Sunshine..."
+                   if ! is_installed_dnf "Sunshine"; then
+                       sudo dnf copr enable -y lizardbyte/stable || warn "Failed to enable lizardbyte/stable copr"
+                       sudo dnf install -y Sunshine || warn "Sunshine install failed"
+                       sudo usermod -aG input,video "$TARGET_USER" || warn "Failed to add Sunshine inputd"
+                       sudo systemctl --user enable --now app-dev.lizardbyte.app.Sunshine || warn "Failed to start Sunshine user service"
+                       echo "    Sunshine installed - logout/reboot for video & input group membership to take effect."
+                   else
+                       echo "    [SKIP] Sunshine (already installed)"
+                   fi ;;
+                2) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing Moonlight..."
+                       sudo flatpak install -y flathub com.moonlight_stream.Moonlight || warn "Moonlight install failed"
+                   else warn "Moonlight requires Flatpak (not available)"; fi ;;
+                3) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing RustDesk..."
+                       sudo flatpak install -y flathub com.rustdesk.RustDesk || warn "Rustdesk install failed"
+                   else warn "RustDesk requires Flatpak (not available)"; fi ;;
+                4) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                       echo "    Installing LocalSend..."
+                       sudo flatpak install -y flathub org.localsend.localsend_app || warn "LocalSend install failed"
+                   else warn "LocalSend requires Flatpak (not available)"; fi ;;
+                *) warn "Invalid choice: $1" ;;
+            esac
+        }
 
-            if ask_yes_no "    Install Calculator?"; then
-                sudo dnf install -y --skip-unavailable gnome-calculator || warn "GNOME Calculator install failed"
-            fi
+        # =================================================================
+        # Batch-aware selection helper
+        # Accepts: "1 3 5" (multiple), "all"/"a", "d"/"done"
+        # Returns 1 when user chose Done so caller breaks the loop.
+        # =================================================================
+        multi_select() {
+            local handler="$1" max="$2"
+            local selection token i
+            read -r -p "    Choose app(s) (e.g. 1 3 5, 'all'; D to finish): " selection
+            for token in $selection; do
+                token="${token,,}"
+                case "$token" in
+                    d|done) return 1 ;;
+                    all|a)  for ((i=1; i<=max; i++)); do "$handler" "$i"; done ;;
+                    *)      "$handler" "$token" ;;
+                esac
+            done
+            return 0
+        }
 
-            if ask_yes_no "    Install qBittorrent?"; then
-                sudo dnf install -y --skip-unavailable qbittorrent || warn "qBittorrent install failed"
-            fi
-
-            if ask_yes_no "    Install KDE Partition Manager?"; then
-                sudo dnf install -y --skip-unavailable kde-partitionmanager || warn "KDE Partition Manager install failed"
-            fi
-
-            if ask_yes_no "    Install Fastfetch (TUI tool for displaying system info)?"; then
-                sudo dnf install -y --skip-unavailable fastfetch || warn "Fastfetch install failed"
-            fi
-
-            if ask_yes_no "    Install rsync (TUI tool for transferring and synchronizing files)?"; then
-                sudo dnf install -y --skip-unavailable rsync || warn "rsync install failed"
-            fi
-
-            if ask_yes_no "    Install duf (TUI Disk Usage utility)?"; then
-                sudo dnf install -y --skip-unavailable duf || warn "duf install failed"
-            fi
-
-            if ask_yes_no "    Install btop (TUI Resource Monitor)?"; then
-                sudo dnf install -y --skip-unavailable btop || warn "btop install failed"
-            fi
-
-            if ask_yes_no "    Install htop (Terminal process viewer)?"; then
-                sudo dnf install -y --skip-unavailable htop || warn "htop install failed"
-            fi
-
-            if ask_yes_no "    Install GNOME Keyring and Seahorse (password manager)?"; then
-                sudo dnf install -y --skip-unavailable gnome-keyring seahorse || warn "GNOME Keyring/Seahorse install failed"
-            fi
-
-            if [ "$FLATPAK_AVAILABLE" = false ]; then
-                echo "    Apps requiring Flatpak skipped as its not available."
-            else
-                if ask_yes_no "    Install Bazaar (app store)?"; then
-                    sudo flatpak install -y flathub io.github.kolunmi.Bazaar || warn "Bazaar install failed"
+        # Group 1: Core Apps
+        if ask_yes_no "  Install Core Apps (terminals, media, system tools)?"; then
+            while true; do
+                echo ""
+                echo "    Available core apps:"
+                echo "      1) Kitty (terminal)"
+                echo "      2) Alacritty (terminal)"
+                echo "      3) Timeshift (system restore tool)"
+                echo "      4) Loupe (image viewer)"
+                echo "      5) Spectacle (screen capture tool)"
+                echo "      6) Cliamp (terminal music player)"
+                if [ "$FLATPAK_AVAILABLE" = true ]; then
+                    echo "      7) Cine (MPV media player with GUI)"
                 fi
-
-                if ask_yes_no "    Install Dejadup (User file backup app)?"; then
-                    sudo flatpak install -y flathub org.gnome.DejaDup || warn "Dejadup install failed"
-                fi
-
-                if ask_yes_no "    Install Warehouse (For flatpak apps backup)?"; then
-                    sudo flatpak install -y flathub io.github.flattool.Warehouse || warn "Warehouse install failed"
-                fi
-
-                if ask_yes_no "    Install DistroShelf (Distrobox gui)?"; then
-                    sudo flatpak install -y flathub com.ranfdev.DistroShelf || warn "DistroShelf install failed"
-                fi
-            fi
+                echo "      D) Done / skip"
+                multi_select core_app_install 7 || break
+            done
         else
-            echo "  Utility Apps Installation Skipped"
+            echo "  [SKIP] Core Apps"
         fi
-        
-        # --------- Group 3: File Explorer Selection ---------
+
+        # Group 2: Utility Apps
+        if ask_yes_no "  Install Utility Apps?"; then
+            while true; do
+                echo ""
+                echo "    Available utility apps:"
+                echo "      1) GNOME Calculator"
+                echo "      2) qBittorrent"
+                echo "      3) KDE Partition Manager"
+                echo "      4) Fastfetch (system info)"
+                echo "      5) rsync (file sync)"
+                echo "      6) duf (disk usage)"
+                echo "      7) btop (resource monitor)"
+                echo "      8) htop (process viewer)"
+                echo "      9) GNOME Keyring + Seahorse (password manager)"
+                if [ "$FLATPAK_AVAILABLE" = true ]; then
+                    echo "     10) Bazaar (app store)"
+                    echo "     11) Deja Dup (user file backup)"
+                    echo "     12) Warehouse (Flatpak app backup)"
+                    echo "     13) DistroShelf (Distrobox GUI)"
+                fi
+                echo "      D) Done / skip"
+                multi_select utility_app_install 13 || break
+            done
+        else
+            echo "  [SKIP] Utility Apps"
+        fi
+
+        # Group 3: File Explorers
         if ask_yes_no "  Install File Explorer(s)?"; then
             while true; do
                 echo ""
@@ -464,49 +657,14 @@ if [ "$SKIP_APPS" = false ]; then
                 echo "      2) Nautilus (GNOME file manager)"
                 echo "      3) Double Commander (dual-pane, Qt6)"
                 echo "      4) Yazi (terminal file manager)"
-                echo "      5) Done / skip"
-                read -r -p "    Choose a file explorer to install (1-5): " fe_choice
-                case "$fe_choice" in
-                    1)
-                        echo "    Installing Dolphin..."
-                        sudo dnf install -y --skip-unavailable dolphin unrar unzip ark || warn "Dolphin install failed"
-                        ;;
-                    2)
-                        echo "    Installing Nautilus..."
-                        sudo dnf install -y --skip-unavailable nautilus file-roller-nautilus || warn "Nautilus install failed"
-                        ;;
-                    3)
-                        echo "    Installing Double Commander (Qt6)..."
-                        sudo dnf install -y --skip-unavailable doublecmd-qt6 || warn "Double Commander install failed"
-                        ;;
-                    4)
-                        echo "    Installing Yazi (terminal file manager)..."
-                        if ! is_installed_dnf "yazi"; then
-                            sudo dnf copr enable -y lihaohong/yazi || warn "Failed to enable yazi copr"
-                            sudo dnf install -y yazi || warn "yazi install failed"
-                        else
-                            echo "    [SKIP] yazi (already installed)"
-                        fi
-                        ;;
-                    5)
-                        echo "    Finished file explorer installation."
-                        break
-                        ;;
-                    *)
-                        echo "    Invalid choice. Please enter 1-5."
-                        continue
-                        ;;
-                esac
-
-                if ! ask_yes_no "    Install another file explorer?"; then
-                    break
-                fi
+                echo "      D) Done / skip"
+                multi_select file_explorer_install 4 || break
             done
         else
-            echo " File Explorer installation Skipped"
+            echo "  [SKIP] File Explorer(s)"
         fi
 
-        # --------- Group 4: Browsers ---------
+        # Group 4: Browsers
         if ask_yes_no "  Install Browser(s)?"; then
             while true; do
                 echo ""
@@ -516,212 +674,84 @@ if [ "$SKIP_APPS" = false ]; then
                 echo "      3) Helium"
                 echo "      4) Brave Origin"
                 echo "      5) Floorp"
-                echo "      6) Done / skip"
-                read -r -p "    Choose a browser to install (1-6): " browser_choice
-                case "$browser_choice" in
-                    1)
-                        echo "    Installing Mozilla Firefox..."
-                        sudo dnf install -y --skip-unavailable firefox || warn "Firefox install failed"
-                        ;;
-                    2)
-                        echo "    Installing Vivaldi..."
-                        if ! is_installed_dnf "vivaldi-stable"; then
-                            sudo dnf config-manager addrepo --from-repofile=https://repo.vivaldi.com/stable/vivaldi-fedora.repo || warn "Vivaldi repo install failed"
-                            sudo dnf install -y --skip-unavailable vivaldi-stable || warn "Vivaldi install failed"
-                        else
-                            echo "    [SKIP] Vivaldi is already installed."
-                        fi
-                        ;;
-                    3)
-                        echo "    Installing Helium Browser..."
-                        if ! is_installed_dnf "helium-bin"; then
-                            sudo dnf copr enable -y imput/helium || warn "Failed to enable helium copr"
-                            sudo dnf install -y helium-bin || warn "Helium install failed"
-                        else
-                            echo "    [SKIP] Helium Browser is already installed."
-                        fi
-                        ;;
-                    4)
-                        echo "    Installing Brave Origin..."
-                        sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo || warn "Brave repo install failed"
-                        sudo dnf install -y --skip-unavailable brave-origin-nightly || warn "Brave-origin install failed"
-                        ;;
-                    5)
-                        echo "    Installing Floorp Browser..."
-                        if ! is_installed_dnf "floorp"; then
-                            sudo dnf copr enable -y sneexy/floorp || warn "Failed to enable Floorp copr"
-                            sudo dnf install -y floorp || warn "Floorp install failed"
-                        else
-                            echo "    [SKIP] Floorp Browser is already installed."
-                        fi
-                        ;;
-                    6)
-                        echo "    Finished browser installation."
-                        break
-                        ;;
-                    *)
-                        echo "    Invalid choice. Please enter 1-6."
-                        continue
-                        ;;
-                esac
-
-                if ! ask_yes_no "    Install another browser?"; then
-                    break
-                fi
+                echo "      D) Done / skip"
+                multi_select browser_install 5 || break
             done
         else
-            echo "  Browser Installation Skipped"
+            echo "  [SKIP] Browser(s)"
         fi
 
-        # --------- Group 5: Audio, Video, Image and Text editing Apps ---------
-        if ask_yes_no "  Install Audio, Video, Image and Text editing Apps (kate, zed, libreoffice, Obsidian)?"; then
-
-            if ask_yes_no "    Install Kate (zed alternative for editing scripts)?"; then
-                sudo dnf install -y --skip-unavailable kate || warn "kate install failed"
-            fi
-
-            if ask_yes_no "    Install libreoffice-writer (Word processor)?"; then
-                sudo dnf install -y --skip-unavailable libreoffice-writer || warn "libreoffice-writer install failed"
-            fi
-
-            if ask_yes_no "    Install libreoffice-calc (sheets)?"; then
-                sudo dnf install -y --skip-unavailable libreoffice-calc || warn "libreoffice-calc install failed"
-            fi
-
-            if ask_yes_no "    Install libreoffice-impress (power point)?"; then
-                sudo dnf install -y --skip-unavailable libreoffice-impress || warn "libreoffice-impress install failed"
-            fi
-
-            if ask_yes_no "    Install libreoffice-draw (PDF sign/reader/editor)?"; then
-                sudo dnf install -y --skip-unavailable libreoffice-draw || warn "libreoffice-draw install failed"
-            fi
-
-            if [ "$FLATPAK_AVAILABLE" = false ]; then
-                echo "    Apps requiring Flatpak skipped as its not available."
-            else
-                if ask_yes_no "    Install Zed editor (text and code editor)?"; then
-                    sudo flatpak install -y flathub dev.zed.Zed || warn "Zed install failed"
+        # Group 5: Editing Apps
+        if ask_yes_no "  Install Editing Apps?"; then
+            while true; do
+                echo ""
+                echo "    Available editing apps:"
+                echo "      1) Kate (text editor)"
+                echo "      2) LibreOffice Writer"
+                echo "      3) LibreOffice Calc"
+                echo "      4) LibreOffice Impress"
+                echo "      5) LibreOffice Draw"
+                if [ "$FLATPAK_AVAILABLE" = true ]; then
+                    echo "      6) Zed (text/code editor)"
+                    echo "      7) Obsidian (note-taking)"
+                    echo "      8) Kdenlive (video editor)"
+                    echo "      9) Krita (image editor)"
+                    echo "     10) Audacity (audio editor)"
                 fi
-
-                if ask_yes_no "    Install Obsidian (online notes sync app)?"; then
-                    sudo flatpak install -y flathub md.obsidian.Obsidian || warn "Obsidian install failed"
-                fi
-
-                if ask_yes_no "    Install Kdenlive (Video Editor)?"; then
-                    sudo flatpak install -y flathub org.kde.kdenlive || warn "kdenlive install failed"
-                fi
-
-                if ask_yes_no "    Install Krita (Image Editor)?"; then
-                    sudo flatpak install -y flathub org.kde.krita || warn "Krita install failed"
-                fi
-
-                if ask_yes_no "    Install Audacity (Audio editor)?"; then
-                    sudo flatpak install -y flathub org.audacityteam.Audacity || warn "audacity install failed"
-                fi
-                
-            fi
+                echo "      D) Done / skip"
+                multi_select editing_app_install 10 || break
+            done
         else
-            echo "  Audio, Video, Imaage and Text editor installation skipped"
+            echo "  [SKIP] Editing Apps"
         fi
 
-        # --------- Group 6: Gaming Apps ---------
-        if ask_yes_no "  Install Gaming Apps (Steam, Mangohud, Gamescope, Protontricks, Faugus launcher, Lact, ProtonPlus, GOverlay, ProtonUp-Qt) ?"; then
-
-            if ask_yes_no "    Install Steam?"; then
-                sudo dnf install -y --skip-unavailable steam || warn "Steam install failed"
-            fi
-
-            if ask_yes_no "    Install MangoHud (In game overlay for monitoring GPU/CPU usage,FPS)?"; then
-                sudo dnf install -y --skip-unavailable mangohud || warn "MangoHud install failed"
-            fi
-
-            if ask_yes_no "    Install Gamescope (isolated compositor for HDR,FSR etc.)?"; then
-                sudo dnf install -y --skip-unavailable gamescope || warn "Gamescope install failed"
-            fi
-
-            if ask_yes_no "    Install Protontricks (To install windows tools required for games, mods)?"; then
-                sudo dnf install -y --skip-unavailable protontricks || warn "Protontricks install failed"
-            fi
-
-            if ask_yes_no "    Install faugus-launcher (Lightweight game launcher)?"; then
-                if ! is_installed_dnf "faugus-launcher"; then
-                    sudo dnf copr enable -y faugus/faugus-launcher || warn "Failed to enable faugus-launcher copr"
-                    sudo dnf install -y faugus-launcher || warn "faugus-launcher install failed"
-                else
-                    echo "    [SKIP] faugus-launcher (already installed)"
+        # Group 6: Gaming Apps
+        if ask_yes_no "  Install Gaming Apps?"; then
+            while true; do
+                echo ""
+                echo "    Available gaming apps:"
+                echo "      1) Steam"
+                echo "      2) MangoHud (in-game overlay)"
+                echo "      3) Gamescope (isolated compositor)"
+                echo "      4) Protontricks (Windows tools for Proton)"
+                echo "      5) faugus-launcher (lightweight game launcher)"
+                echo "      6) LACT (GPU overclocking tool)"
+                if [ "$FLATPAK_AVAILABLE" = true ]; then
+                    echo "      7) ProtonPlus"
+                    echo "      8) ProtonUp-Qt"
+                    echo "      9) GOverlay (MangoHud GUI)"
                 fi
-            fi
-
-            if ask_yes_no "    Install and set up LACT (GPU overclocking tool)?"; then
-                if ! is_installed_dnf "lact"; then
-                    sudo dnf copr enable -y ilyaz/LACT || warn "Failed to enable LACT copr"
-                    sudo dnf install -y lact || warn "lact install failed"
-                    sudo systemctl enable --now lactd || warn "Failed to enable lactd service"
-                else
-                    echo "    [SKIP] lact (already installed)"
-                fi
-            fi
-
-            if [ "$FLATPAK_AVAILABLE" = false ]; then
-                echo "    Apps requiring Flatpak skipped as its not available."
-            else
-                if ask_yes_no "    Install ProtonPlus (To check and install proton versions)?"; then
-                    sudo flatpak install -y flathub com.vysp3r.ProtonPlus || warn "ProtonPlus install failed"
-                fi
-
-                if ask_yes_no "    Install ProtonUp-Qt (ProtonPlus alternative)?"; then
-                    sudo flatpak install -y flathub net.davidotek.pupgui2 || warn "ProtonUp-Qt install failed"
-                fi
-
-                if ask_yes_no "    Install GOverlay (GUI tool for mangohud)?"; then
-                    sudo flatpak install -y flathub io.github.benjamimgois.goverlay || warn "GOverlay install failed"
-                fi
-            fi
+                echo "      D) Done / skip"
+                multi_select gaming_app_install 9 || break
+            done
         else
-            echo "  Gaming Apps Installation skipped"
+            echo "  [SKIP] Gaming Apps"
         fi
 
-        # --------- Group 7: Remote Desktop and File Sharing ---------
-        if ask_yes_no "  Install apps from Group 7: Remote Desktop and File Sharing (Sunshine, Moonlight, Localsend, Rustdesk) ?"; then
-            echo -e "\n  Group 7: Remote Desktop and File Sharing"
-
-            if ask_yes_no "    Install Sunshine (Game streaming backend)?"; then
-                if ! is_installed_dnf "Sunshine"; then
-                    sudo dnf copr enable -y lizardbyte/stable || warn "Failed to enable lizardbyte/stable copr"
-                    sudo dnf install -y Sunshine || warn "Sunshine install failed"
-                    sudo usermod -aG input,video "$TARGET_USER" || warn "Failed to add Sunshine inputd"
-                    sudo systemctl --user enable --now app-dev.lizardbyte.app.Sunshine || warn "Failed to start Sunshine user service"
-                    echo "    Sunshine installed - logout/reboot for video & input group membership to take effect."
-                else
-                    echo "    [SKIP] Sunshine (already installed)"
+        # Group 7: Remote Desktop and File Sharing Apps
+        if ask_yes_no "  Install Remote Desktop and File Sharing apps?"; then
+            while true; do
+                echo ""
+                echo "    Available remote/ sharing apps:"
+                echo "      1) Sunshine (game streaming backend)"
+                if [ "$FLATPAK_AVAILABLE" = true ]; then
+                    echo "      2) Moonlight (game streaming client)"
+                    echo "      3) RustDesk (remote desktop client)"
+                    echo "      4) LocalSend (file sharing client)"
                 fi
-            fi
-
-            if [ "$FLATPAK_AVAILABLE" = false ]; then
-                echo "    [SKIP] Moonlight, RustDesk, and LocalSend require Flatpak (not available)."
-            else
-                if ask_yes_no "    Install Moonlight (Game streaming client)?"; then
-                    sudo flatpak install -y flathub com.moonlight_stream.Moonlight || warn "Moonlight install failed"
-                fi
-
-                if ask_yes_no "    Install Rustdesk (Remote desktop client)?"; then
-                    sudo flatpak install -y flathub com.rustdesk.RustDesk || warn "Rustdesk install failed"
-                fi
-
-                if ask_yes_no "    Install Localsend (Remote file sharing client)?"; then
-                    sudo flatpak install -y flathub org.localsend.localsend_app || warn "LocalSend install failed"
-                fi
-            fi
+                echo "      D) Done / skip"
+                multi_select remote_app_install 4 || break
+            done
         else
-            echo "  [SKIP] Group 7: Remote Desktop and File Sharing"
+            echo "  [SKIP] Remote Desktop and File Sharing"
         fi
+
     else
         echo "[SKIP] User Apps Installation"
     fi
 else
     echo "[SKIP] User applications (--skip-apps flag)"
 fi
-
 # =========================================================================
 # STAGE 8 – Terminal Setup (zsh, fish, starship)
 # =========================================================================
