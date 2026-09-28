@@ -63,7 +63,7 @@ Run using
 		- Timeshift > System restore tool
 		- Spectacle > Screen capture tool
   	- Choice of Browser (can install multiple)
-    	- Brave origin, Vivaldi, firefox, Helium 
+    	- Brave origin, Vivaldi, firefox, Helium, Floorp
 
 	- Utility apps
 		- Media player > cine (mpv gui player)
