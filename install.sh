@@ -757,7 +757,6 @@ if [ "$SKIP_SHELL" = false ]; then
                 echo "[SKIP] Changing default shell to zsh"
             fi
         fi
-
     # --- FISH ---
     elif [ "${SHELL_CHOICE,,}" = "fish" ]; then
         echo "Setting up fish..."
@@ -774,7 +773,6 @@ if [ "$SKIP_SHELL" = false ]; then
     else
         echo "[SKIP] Custom shell installation"
     fi
-
     # --- STARSHIP ---
     if ask_yes_no "Set up starship prompt?"; then
         if ! is_installed_dnf "starship"; then
