@@ -56,7 +56,7 @@ Run using
 	- Core/Essential apps
 		- App store manager > flatpak flathub flatseal warehouse
 		- App store > bazaar 
-		- File manager > Dolphin or Nautilus
+		- File manager > Dolphin, Nautilus, Double Commander
 		- Zip file manager > Ark
 		- Terminal > Kitty
 		- DejaDup > User file backup/restore tool
@@ -67,6 +67,7 @@ Run using
 
 	- Utility apps
 		- Media player > cine (mpv gui player)
+		- Music player > Cliamp
 		- Image viewer > loupe
 		- Calculator > gnome-calculator 
 		- File sharing > qbittorrent 
