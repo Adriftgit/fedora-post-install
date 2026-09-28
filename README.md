@@ -58,7 +58,7 @@ Run using
 		- App store > bazaar 
 		- File manager > Dolphin, Nautilus, Double Commander
 		- Zip file manager > Ark
-		- Terminal > Kitty
+		- Terminal > Kitty or Alacritty
 		- DejaDup > User file backup/restore tool
 		- Timeshift > System restore tool
 		- Spectacle > Screen capture tool
