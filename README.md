@@ -79,10 +79,7 @@ Run using
 
 	- Text editing apps
 		- Basic writer > Kate
-		- Spreadsheet editor > libreoffice calc
-		- Powerpoint > libreoffice-impress
-		- PDF sign/reader/editor > libreoffice-draw
-		- Word processor > libreoffice-writer
+		- Office suite > libreoffice or Collabora office
 		- Script editor > Zed
    		- Online notes sync > Obsidian
    	   
