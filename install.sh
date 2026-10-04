@@ -507,6 +507,10 @@ if [ "$SKIP_APPS" = false ]; then
                         echo "    Installing Audacity..."
                         sudo flatpak install -y flathub org.audacityteam.Audacity || warn "audacity install failed"
                     else warn "Audacity requires Flatpak (not available)"; fi ;;
+                11) if [ "$FLATPAK_AVAILABLE" = true ]; then
+                        echo "    Installing Collabora Office..."
+                        sudo flatpak install -y flathub com.collaboraoffice.Office || warn "Collabora Office install failed"
+                    else warn "Collabora Office requires Flatpak (not available)"; fi ;;
                 *) warn "Invalid choice: $1" ;;
             esac
         }
@@ -697,9 +701,10 @@ if [ "$SKIP_APPS" = false ]; then
                     echo "      8) Kdenlive (video editor)"
                     echo "      9) Krita (image editor)"
                     echo "     10) Audacity (audio editor)"
+                    echo "     11) Collabora Office (office suite)"
                 fi
                 echo "      D) Done / skip"
-                multi_select editing_app_install 10 || break
+                multi_select editing_app_install 11 || break
             done
         else
             echo "  [SKIP] Editing Apps"
